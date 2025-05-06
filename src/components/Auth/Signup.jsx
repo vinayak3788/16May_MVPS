@@ -89,6 +89,7 @@ export default function Signup() {
   return (
     <Layout title="Sign Up for MVP Services">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* First/Last Name, Mobile, Email, Password inputs */}
         <div>
           <label className="block mb-1 font-medium">First Name</label>
           <input
@@ -149,6 +150,7 @@ export default function Signup() {
 
       <div className="text-center font-semibold my-6">OR</div>
 
+      {/* Corrected the handler name here */}
       <Button
         onClick={handleGoogleSignup}
         disabled={loading}

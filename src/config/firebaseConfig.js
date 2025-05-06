@@ -3,8 +3,8 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAqX2UKQgFuy0AAlDXwzrZGvwFgEsQ5ePQ",
-  authDomain: "mvps-7adb0.firebaseapp.com",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: "mvps-7adb0",
   storageBucket: "mvps-7adb0.appspot.com",
   messagingSenderId: "617672630606",

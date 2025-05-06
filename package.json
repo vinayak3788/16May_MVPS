@@ -2,12 +2,12 @@
   "name": "mvps-printv7",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "dev": "concurrently \"node src/backend/index.js\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "npm run build && node src/backend/index.js"
+    "start": "npm run build && node server.js"
   },
   "keywords": [],
   "author": "",

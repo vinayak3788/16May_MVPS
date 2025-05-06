@@ -2,15 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Relaxed CSP for Firebase Auth & Google OAuth:
+      - script-src: allow Google APIs + Firebase SDK host
+      - connect-src: allow identitytoolkit, securetoken and other googleapis endpoints
+      - frame-src: Google OAuth frames
+      - style/img: your own + safe inline/data URIs
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' https://apis.google.com;
-        connect-src 'self' https://www.googleapis.com;
-        style-src 'self' 'unsafe-inline';
-        img-src 'self' data:;
-      "
+      content="default-src 'self'; \
+               script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com; \
+               script-src-elem 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com; \
+               connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; \
+               frame-src 'self' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; \
+               style-src 'self' 'unsafe-inline'; \
+               img-src 'self' data:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MVPS Printing</title>

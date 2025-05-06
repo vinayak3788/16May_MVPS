@@ -1,7 +1,12 @@
 // src/components/Auth/Login.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { auth, googleProvider } from "../../config/firebaseConfig";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -15,7 +20,43 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // After sign-in, check backend profile and block status
+  // Handle post-redirect Google result
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          const userEmail = result.user.email;
+          // run your post-login checks
+          try {
+            const { data: profile } = await axios.get(
+              `/api/get-profile?email=${encodeURIComponent(userEmail)}`,
+            );
+            if (profile.blocked) {
+              toast.error("Your account has been blocked. Contact admin.");
+              await auth.signOut();
+            } else {
+              toast.success("Welcome back!");
+              navigate("/userdashboard");
+            }
+          } catch (err) {
+            if (err.response?.status === 404) {
+              toast.error("No account found. Please sign up first.");
+              await auth.signOut();
+              navigate("/signup");
+            } else {
+              console.error("Error fetching profile:", err);
+              toast.error("Server error. Try again later.");
+              await auth.signOut();
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Redirect sign-in error:", err);
+        toast.error("Google sign-in failed. Please try again.");
+      });
+  }, [navigate]);
+
   const postLoginCheck = async (userEmail) => {
     try {
       const { data: profile } = await axios.get(
@@ -59,24 +100,15 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     setLoading(true);
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      if (await postLoginCheck(result.user.email)) {
-        toast.success("Welcome back!");
-        navigate("/userdashboard");
-      }
-    } catch (err) {
-      console.error("Google sign-in error:", err);
-      toast.error("Google sign-in failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    const provider = new GoogleAuthProvider();
+    // this will navigate away to Google and back
+    signInWithRedirect(auth, provider);
   };
 
   return (
-    <Layout title="Log In to MVP Services">
+    <Layout title="Log In to MVP Services" maxWidth="max-w-md">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block mb-1 font-medium">Email</label>
@@ -98,7 +130,6 @@ export default function Login() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
-
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Signing in…" : "Log In"}
         </Button>
@@ -106,14 +137,14 @@ export default function Login() {
 
       <div className="text-center font-semibold my-6">OR</div>
 
-      <Button
+      <button
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="w-full flex items-center justify-center border border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+        className="w-full flex items-center justify-center border border-gray-300 bg-white px-4 py-2 rounded-md hover:bg-gray-100 disabled:opacity-50 transition"
       >
         <img src="/google-logo.svg" alt="Google" className="w-5 h-5 mr-2" />
         Sign in with Google
-      </Button>
+      </button>
 
       <p className="mt-6 text-center text-sm">
         Don’t have an account?{" "}
