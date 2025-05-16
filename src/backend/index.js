@@ -1,63 +1,50 @@
 // src/backend/index.js
 import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import path from "path";
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import stationeryRoutes from "./routes/stationeryRoutes.js";
-import userRoutes from "./routes/userRoutes.js"; // 👈 Import userRoutes early
+import userRoutes from "./routes/userRoutes.js";
 import otpRoutes from "./routes/otpRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import { initDB } from "./setupDb.js";
 
-import { initDB } from "./setupDb.js"; // make sure this is correct
-
+// Resolve __dirname in ES module scope
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load env
+// Load environment variables from project root
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-// Initialize DB
+// Initialize the database
 await initDB();
 
 const app = express();
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 🚀 Middleware setup
+app.use(cors()); // Enable CORS for all origins
+app.use(express.json()); // Parse JSON bodies
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
-// Mount all API routes under /api, in the correct order:
+// 📦 Mount API routes under /api
 app.use("/api", stationeryRoutes);
-app.use("/api", userRoutes); // 👈 must come before otp and orders
+app.use("/api", userRoutes);
 app.use("/api", otpRoutes);
 app.use("/api", orderRoutes);
 
-// Static file serving
+// 📁 Static file serving
 const uploadDir = path.resolve(__dirname, "../../data/uploads");
 const distPath = path.resolve(__dirname, "../../dist");
+app.use("/uploads", express.static(uploadDir)); // Serve uploads
+app.use(express.static(distPath)); // Serve React build assets
 
-app.use(express.static(distPath));
-app.use("/uploads", express.static(uploadDir));
-
-// CSP headers (if you need them)
-app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: https:; " +
-      "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
-  );
-  next();
-});
-
-// SPA fallback
+// 🌐 SPA fallback: serve index.html for all non-API routes
 app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
-// Start
+// 🔈 Start server on configured PORT
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () =>
-  console.log(`✅ Express API running at http://localhost:${PORT}`),
-);
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
