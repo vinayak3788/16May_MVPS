@@ -2,7 +2,6 @@
 
 import { Pool } from "pg";
 import dotenv from "dotenv";
-
 dotenv.config();
 
 const pool = new Pool({
@@ -112,10 +111,19 @@ export const upsertProfile = async (profile) => {
 
 export const getProfile = async (email) => {
   const { rows } = await pool.query(
-    `SELECT p.email, p.firstName, p.lastName, p.mobileNumber, p.mobileVerified, u.blocked
-       FROM profiles p
-       JOIN users u ON p.email = u.email
-      WHERE p.email = $1`,
+    `
+    SELECT 
+      p.email,
+      p.firstname    AS "firstName",
+      p.lastname     AS "lastName",
+      p.mobilenumber AS "mobileNumber",
+      p.mobileverified AS "mobileVerified",
+      u.blocked,
+      u.role
+    FROM profiles p
+    JOIN users u ON p.email = u.email
+    WHERE p.email = $1
+  `,
     [email],
   );
   return rows[0] || null;
