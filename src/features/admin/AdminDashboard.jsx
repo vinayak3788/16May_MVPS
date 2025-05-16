@@ -25,6 +25,7 @@ import {
   updateProfile,
   verifyMobileManual,
 } from "../../api/userApi";
+import { getAllStationery } from "../../api/stationeryApi";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [stationery, setStationery] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -48,14 +50,16 @@ export default function AdminDashboard() {
     if (pending) return;
     if (activeTab === "orders") fetchOrders();
     if (activeTab === "users") fetchUsers();
+    if (activeTab === "stationery") fetchStationery();
   }, [activeTab, pending]);
 
-  const wrapAction = async (apiCall, onSuccessMsg, refetch) => {
+  const wrapAction = async (apiCall, successMsg, refetch) => {
     setLoading(true);
     try {
-      await apiCall();
-      toast.success(onSuccessMsg);
+      const result = await apiCall();
+      if (successMsg) toast.success(successMsg);
       refetch && refetch();
+      return result;
     } catch {
       toast.error("Operation failed");
     } finally {
@@ -67,13 +71,19 @@ export default function AdminDashboard() {
     wrapAction(async () => {
       const { orders } = await getAllOrders();
       setOrders(orders);
-    }, "Orders loaded");
+    }, null);
 
   const fetchUsers = () =>
     wrapAction(async () => {
       const { users } = await getAllUsers();
       setUsers(users);
-    }, "Users loaded");
+    }, null);
+
+  const fetchStationery = () =>
+    wrapAction(async () => {
+      const { products } = await getAllStationery();
+      setStationery(products);
+    }, null);
 
   const handleStatusChange = (id, status) =>
     wrapAction(
@@ -122,10 +132,10 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      {/* Top navigation tabs */}
+      {/* Navigation tabs */}
       <AdminNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Content area */}
+      {/* Content */}
       <div className="p-6 bg-white rounded shadow mt-4 overflow-auto min-h-[70vh]">
         {activeTab === "orders" && (
           <>
@@ -164,7 +174,7 @@ export default function AdminDashboard() {
           <>
             <h2 className="text-2xl font-bold mb-4">Manage Stationery</h2>
             <AdminStationeryForm />
-            <AdminStationeryTable />
+            <AdminStationeryTable products={stationery} loading={loading} />
           </>
         )}
       </div>
