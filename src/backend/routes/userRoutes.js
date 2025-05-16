@@ -5,12 +5,12 @@ console.log("🛠️  userRoutes.js loaded — unblock route is in play");
 
 import express from "express";
 import pool, {
-  ensureUserRole,
-  getUserRole,
   updateUserRole,
+  getUserRole,
   blockUser,
   unblockUser,
   deleteUser,
+  ensureUserRole,
   isUserBlocked,
   upsertProfile,
   getProfile,
@@ -20,6 +20,7 @@ const router = express.Router();
 
 // ——— Role management APIs ———
 
+// Change someone’s role (super-admin protected)
 router.post("/update-role", async (req, res) => {
   const { email, role } = req.body;
   if (!email || !role) {
@@ -39,10 +40,12 @@ router.post("/update-role", async (req, res) => {
   }
 });
 
+// Fetch (and auto-create) a user’s role
 router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
+    // Ensure user record exists
     await ensureUserRole(email);
     const role = await getUserRole(email);
     res.json({ role });
@@ -61,10 +64,10 @@ router.get("/get-users", async (req, res) => {
         u.email, 
         u.role, 
         u.blocked, 
-        p.mobileNumber, 
-        p.firstName, 
-        p.lastName, 
-        p.mobileVerified
+        p."mobileNumber", 
+        p."firstName", 
+        p."lastName", 
+        p."mobileVerified"
       FROM users u
       LEFT JOIN profiles p ON u.email = p.email
       ORDER BY u.email
@@ -91,11 +94,14 @@ router.post("/block-user", async (req, res) => {
 });
 
 // ——— Unblock user ———
-
+// ALWAYS returns 200 so front-end can clear UI state
 router.post("/unblock-user", async (req, res) => {
   const { email } = req.body;
   console.log("🛠️  unblock-user handler hit for", email);
-  if (!email) return res.status(400).json({ error: "Email required" });
+
+  if (!email) {
+    return res.status(400).json({ error: "Email required" });
+  }
 
   try {
     const { rows } = await pool.query(
@@ -108,6 +114,7 @@ router.post("/unblock-user", async (req, res) => {
         message: "✅ User was not blocked (no record found).",
       });
     }
+
     await unblockUser(email);
     console.log(`→ Successfully unblocked ${email}`);
     return res.json({ message: "✅ User unblocked successfully." });
@@ -134,17 +141,18 @@ router.post("/delete-user", async (req, res) => {
 // ——— Update user profile ———
 
 router.post("/update-profile", async (req, res) => {
-  const { email, firstName, lastName, mobileNumber, mobileVerified } = req.body;
+  const { email, mobileNumber, firstName, lastName, mobileVerified } = req.body;
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
   try {
+    // upsertProfile handles both INSERT and UPDATE
     await upsertProfile({
       email,
       firstName,
       lastName,
       mobileNumber,
-      mobileVerified,
+      mobileVerified: mobileVerified ? 1 : 0,
     });
     res.json({ message: "✅ Profile updated successfully!" });
   } catch (err) {
@@ -157,7 +165,9 @@ router.post("/update-profile", async (req, res) => {
 
 router.get("/get-profile", async (req, res) => {
   const email = req.query.email;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
   try {
     const profile = await getProfile(email);
     if (!profile) {
@@ -175,17 +185,16 @@ router.get("/get-profile", async (req, res) => {
 router.post("/verify-mobile-manual", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
-
   try {
     const profile = await getProfile(email);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
-    const newFlag = !profile.mobileVerified;
-    await pool.query(
-      `UPDATE profiles SET mobileVerified = $1 WHERE email = $2`,
-      [newFlag, email],
-    );
+    // flip the flag
+    await upsertProfile({
+      ...profile,
+      mobileVerified: profile.mobileVerified ? 0 : 1,
+    });
     res.json({ message: "✅ Mobile verification status updated!" });
   } catch (err) {
     console.error("❌ Failed to toggle mobile verification:", err);
@@ -199,8 +208,16 @@ router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
   try {
+    // ensure user row exists
     await ensureUserRole(email);
-    await upsertProfile({ email, firstName, lastName, mobileNumber });
+    // then create or replace their profile
+    await upsertProfile({
+      email,
+      firstName,
+      lastName,
+      mobileNumber,
+      mobileVerified: 0,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Failed to create user profile:", err);
