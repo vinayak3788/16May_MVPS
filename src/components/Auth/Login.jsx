@@ -1,12 +1,7 @@
 // src/components/Auth/Login.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { auth, googleProvider } from "../../config/firebaseConfig";
-import {
-  signInWithEmailAndPassword,
-  signInWithRedirect,
-  getRedirectResult,
-  GoogleAuthProvider,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -19,43 +14,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Handle post-redirect Google result
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result?.user) {
-          const userEmail = result.user.email;
-          // run your post-login checks
-          try {
-            const { data: profile } = await axios.get(
-              `/api/get-profile?email=${encodeURIComponent(userEmail)}`,
-            );
-            if (profile.blocked) {
-              toast.error("Your account has been blocked. Contact admin.");
-              await auth.signOut();
-            } else {
-              toast.success("Welcome back!");
-              navigate("/userdashboard");
-            }
-          } catch (err) {
-            if (err.response?.status === 404) {
-              toast.error("No account found. Please sign up first.");
-              await auth.signOut();
-              navigate("/signup");
-            } else {
-              console.error("Error fetching profile:", err);
-              toast.error("Server error. Try again later.");
-              await auth.signOut();
-            }
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Redirect sign-in error:", err);
-        toast.error("Google sign-in failed. Please try again.");
-      });
-  }, [navigate]);
 
   const postLoginCheck = async (userEmail) => {
     try {
@@ -100,11 +58,21 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
-    const provider = new GoogleAuthProvider();
-    // this will navigate away to Google and back
-    signInWithRedirect(auth, provider);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const userEmail = result.user.email;
+      if (await postLoginCheck(userEmail)) {
+        toast.success("Welcome back!");
+        navigate("/userdashboard");
+      }
+    } catch (err) {
+      console.error("Google sign-in failed:", err);
+      toast.error("Google sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
