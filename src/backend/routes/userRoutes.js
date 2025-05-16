@@ -44,6 +44,10 @@ router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
+    // Ensure user record exists (new Google sign-ins get default 'user' role)
+    await ensureUserRole(email);
+
+    // Fetch the (possibly newly created) role
     const role = await getUserRole(email);
     res.json({ role });
   } catch (err) {
@@ -60,7 +64,8 @@ router.get("/get-users", async (req, res) => {
       filename: path.resolve("data/orders.db"),
       driver: sqlite3.Database,
     });
-    const users = await db.all(`
+    const users = await db.all(
+      `
       SELECT 
         u.email, 
         u.role, 
@@ -72,7 +77,8 @@ router.get("/get-users", async (req, res) => {
       FROM users u
       LEFT JOIN profiles p ON u.email = p.email
       ORDER BY u.email
-    `);
+    `,
+    );
     res.json({ users });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
@@ -98,8 +104,6 @@ router.post("/block-user", async (req, res) => {
 // ALWAYS returns 200 so front-end can clear UI state
 router.post("/unblock-user", async (req, res) => {
   const { email } = req.body;
-
-  // 🛠️ Debug log to confirm we hit this handler
   console.log("🛠️  unblock-user handler hit for", email);
 
   if (!email) {
@@ -126,7 +130,6 @@ router.post("/unblock-user", async (req, res) => {
     return res.json({ message: "✅ User unblocked successfully." });
   } catch (err) {
     console.error("❌ Error inside unblock-user:", err);
-    // return JSON so front-end sees 200
     return res.json({ error: "Failed to unblock user." });
   }
 });
