@@ -1,13 +1,10 @@
 // src/backend/routes/stationeryRoutes.js
-
 import express from "express";
 import multer from "multer";
 import pool from "../db.js";
 import { uploadImageToS3 } from "../../config/s3StationeryUploader.js";
 
 const router = express.Router();
-
-// Multer setup (memory storage for S3 upload)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -21,7 +18,7 @@ const ensureTable = async () => {
       price REAL NOT NULL,
       discount REAL DEFAULT 0,
       images JSONB DEFAULT '[]',
-      createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
 };
@@ -37,15 +34,11 @@ router.post(
     }
     try {
       await ensureTable();
-
       const uploadedUrls = [];
       for (const file of req.files || []) {
         const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
         uploadedUrls.push(s3Url);
       }
-
-      const imagesJson = JSON.stringify(uploadedUrls);
-
       await pool.query(
         `INSERT INTO stationery_products
            (name, description, price, discount, images)
@@ -55,10 +48,9 @@ router.post(
           description || "",
           parseFloat(price),
           parseFloat(discount) || 0,
-          imagesJson,
+          JSON.stringify(uploadedUrls),
         ],
       );
-
       res.json({ message: "Product added successfully" });
     } catch (err) {
       console.error("❌ Error adding product:", err);
@@ -67,7 +59,7 @@ router.post(
   },
 );
 
-// Admin: Update product (with support for keeping old + uploading new images)
+// Admin: Update product
 router.put(
   "/admin/stationery/update/:id",
   upload.array("images", 5),
@@ -79,39 +71,29 @@ router.put(
     }
     try {
       await ensureTable();
-
       const keep = Array.isArray(existing)
         ? existing
         : existing
           ? JSON.parse(existing)
           : [];
-      const uploadedUrls = [...keep];
-
+      const urls = [...keep];
       for (const file of req.files || []) {
         const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
-        uploadedUrls.push(s3Url);
+        urls.push(s3Url);
       }
-
-      const imagesJson = JSON.stringify(uploadedUrls);
-
       await pool.query(
         `UPDATE stationery_products
-           SET name = $1,
-               description = $2,
-               price = $3,
-               discount = $4,
-               images = $5
-         WHERE id = $6`,
+           SET name=$1, description=$2, price=$3, discount=$4, images=$5
+         WHERE id=$6`,
         [
           name,
           description || "",
           parseFloat(price),
           parseFloat(discount) || 0,
-          imagesJson,
+          JSON.stringify(urls),
           id,
         ],
       );
-
       res.json({ message: "Product updated successfully" });
     } catch (err) {
       console.error("❌ Error updating product:", err);
@@ -138,12 +120,20 @@ router.get("/stationery/products", async (req, res) => {
   try {
     await ensureTable();
     const { rows } = await pool.query(
-      `SELECT id, name, description, price, discount, images, createdAt
+      `SELECT id, name, description, price, discount, images, created_at
          FROM stationery_products
-        ORDER BY createdAt DESC`,
+        ORDER BY created_at DESC`,
     );
-    // rows.images is already JSONB
-    res.json(rows);
+    const products = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      price: r.price,
+      discount: r.discount,
+      images: r.images,
+      createdAt: r.created_at,
+    }));
+    res.json({ products });
   } catch (err) {
     console.error("❌ Error fetching products:", err);
     res.status(500).json({ error: "Internal server error" });

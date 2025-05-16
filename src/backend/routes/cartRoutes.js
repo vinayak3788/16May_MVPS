@@ -1,5 +1,4 @@
 // src/backend/routes/cartRoutes.js
-
 import express from "express";
 import pool from "../db.js";
 
@@ -10,11 +9,11 @@ const ensureCartTable = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS carts (
       id SERIAL PRIMARY KEY,
-      userEmail TEXT NOT NULL,
-      type TEXT NOT NULL,          -- 'print' or 'stationery'
-      itemId TEXT NOT NULL,        -- file name or stationery product ID
-      details JSONB,               -- arbitrary metadata
-      createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      user_email TEXT NOT NULL,
+      type TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      details JSONB,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
 };
@@ -28,7 +27,7 @@ router.post("/cart/add", async (req, res) => {
   try {
     await ensureCartTable();
     await pool.query(
-      `INSERT INTO carts (userEmail, type, itemId, details)
+      `INSERT INTO carts (user_email, type, item_id, details)
        VALUES ($1, $2, $3, $4)`,
       [userEmail, type, itemId, details || {}],
     );
@@ -46,10 +45,19 @@ router.get("/cart", async (req, res) => {
   try {
     await ensureCartTable();
     const { rows } = await pool.query(
-      `SELECT * FROM carts WHERE userEmail = $1 ORDER BY createdAt DESC`,
+      `SELECT id, user_email, type, item_id, details, created_at
+         FROM carts WHERE user_email = $1 ORDER BY created_at DESC`,
       [email],
     );
-    res.json({ items: rows });
+    const items = rows.map((r) => ({
+      id: r.id,
+      userEmail: r.user_email,
+      type: r.type,
+      itemId: r.item_id,
+      details: r.details,
+      createdAt: r.created_at,
+    }));
+    res.json({ items });
   } catch (err) {
     console.error("❌ Failed to get cart:", err);
     res.status(500).json({ error: "Internal error" });

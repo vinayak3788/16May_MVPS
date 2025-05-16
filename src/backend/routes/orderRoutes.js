@@ -13,7 +13,7 @@ import { sendOrderConfirmation } from "../mailer.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ——— PRINT + FILE + MIXED FLOW ———
+// ——— SUBMIT PRINT/FILE FLOW ———
 router.post("/submit-order", upload.array("files"), async (req, res) => {
   try {
     const {
@@ -34,8 +34,6 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
     }
 
     const parsedPages = JSON.parse(pageCounts || "[]");
-
-    // 1) create DB row
     const { id: orderId } = await createOrder({
       userEmail: user,
       fileNames: "",
@@ -48,7 +46,6 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
     });
     const orderNumber = `ORD${orderId.toString().padStart(4, "0")}`;
 
-    // 2) upload each PDF to S3
     const uploaded = [];
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
@@ -60,7 +57,6 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       uploaded.push({ name: cleanFileName, pages: parsedPages[i] || 0 });
     }
 
-    // 2b) include stationery items alongside (if any)
     if (req.body.items) {
       const stationeryList = JSON.parse(req.body.items);
       stationeryList.forEach((i) =>
@@ -68,13 +64,11 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       );
     }
 
-    // 3) update DB with filenames & page count
     await updateOrderFiles(orderId, {
       fileNames: uploaded.map((f) => f.name).join(", "),
       totalPages: uploaded.reduce((sum, f) => sum + f.pages, 0),
     });
 
-    // 4) respond so front-end can show QR
     res.json({ orderNumber, totalCost });
   } catch (err) {
     console.error("❌ Error saving print order:", err);
@@ -82,7 +76,7 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
   }
 });
 
-// ——— STATIONERY-ONLY FLOW ———
+// ——— SUBMIT STATIONERY FLOW ———
 router.post("/submit-stationery-order", async (req, res) => {
   try {
     const { user, items, totalCost, createdAt } = req.body;
@@ -93,7 +87,6 @@ router.post("/submit-stationery-order", async (req, res) => {
     const fileNames = items
       .map((i) => `${i.name} × ${i.quantity || 1}`)
       .join(", ");
-
     const { id: orderId } = await createOrder({
       userEmail: user,
       fileNames,
@@ -112,7 +105,7 @@ router.post("/submit-stationery-order", async (req, res) => {
   }
 });
 
-// ——— CONFIRM PAYMENT & SEND EMAIL ———
+// ——— CONFIRM PAYMENT → EMAIL ———
 router.post("/confirm-payment", async (req, res) => {
   try {
     const { orderNumber } = req.body;
@@ -120,43 +113,33 @@ router.post("/confirm-payment", async (req, res) => {
       return res.status(400).json({ error: "Order number required." });
     }
     const { orders } = await getAllOrders();
-    const order = orders.find((o) => o.orderNumber === orderNumber);
+    const order = orders.find((o) => o.ordernumber === orderNumber);
     if (!order) {
       return res.status(404).json({ error: "Order not found." });
     }
 
     let html = `<h2>🧾 Order Confirmation</h2>
       <p><strong>Order No:</strong> ${orderNumber}</p>
-      <p><strong>Total:</strong> ₹${order.totalCost.toFixed(2)}</p>`;
-
-    if (order.printType !== "stationery") {
+      <p><strong>Total:</strong> ₹${order.totalcost.toFixed(2)}</p>`;
+    if (order.printtype !== "stationery") {
       html += `
-        <p><strong>Print Type:</strong> ${
-          order.printType === "color" ? "Color" : "Black & White"
-        }</p>
-        <p><strong>Print Side:</strong> ${
-          order.sideOption === "double" ? "Back to Back" : "Single Sided"
-        }</p>
-        <p><strong>Spiral Binding:</strong> ${
-          order.spiralBinding ? "Yes" : "No"
-        }</p>`;
+        <p><strong>Print Type:</strong> ${order.printtype === "color" ? "Color" : "Black & White"}</p>
+        <p><strong>Print Side:</strong> ${order.sideoption === "double" ? "Back to Back" : "Single Sided"}</p>
+        <p><strong>Spiral Binding:</strong> ${order.spiralbinding ? "Yes" : "No"}</p>`;
     }
 
-    const parts = order.fileNames.split(", ").filter(Boolean);
+    const parts = order.filenames.split(", ").filter(Boolean);
     const pdfs = parts.filter((p) => !p.includes("×"));
     const stationery = parts.filter((p) => p.includes("×"));
-
     if (pdfs.length) {
-      html += `<p><strong>Files:</strong></p>
-        <ul>${pdfs.map((n) => `<li>${n}</li>`).join("")}</ul>`;
+      html += `<p><strong>Files:</strong></p><ul>${pdfs.map((n) => `<li>${n}</li>`).join("")}</ul>`;
     }
     if (stationery.length) {
-      html += `<p><strong>Stationery Items:</strong></p>
-        <ul>${stationery.map((n) => `<li>${n}</li>`).join("")}</ul>`;
+      html += `<p><strong>Stationery Items:</strong></p><ul>${stationery.map((n) => `<li>${n}</li>`).join("")}</ul>`;
     }
 
     await sendOrderConfirmation(
-      `${order.userEmail}, mvpservices2310@gmail.com`,
+      `${order.useremail}, mvpservices2310@gmail.com`,
       `📌 MVPS Order Confirmed - ${orderNumber}`,
       html,
     );
@@ -181,21 +164,33 @@ router.get("/get-signed-url", async (req, res) => {
   }
 });
 
-// ——— FETCH ALL (OR USER‐SCOPED) ORDERS ———
+// ——— FETCH ALL ORDERS (normalized) ———
 router.get("/get-orders", async (req, res) => {
   const userEmail = req.query.email;
   try {
     let { orders } = await getAllOrders();
     if (userEmail) {
-      orders = orders.filter((o) => o.userEmail === userEmail);
+      orders = orders.filter((o) => o.useremail === userEmail);
     }
-    const withFiles = orders.map((o) => ({
-      ...o,
-      attachedFiles: o.fileNames
-        ? o.fileNames.split(", ").map((n) => ({ name: n }))
+
+    const normalized = orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.ordernumber,
+      userEmail: o.useremail,
+      fileNames: o.filenames,
+      printType: o.printtype,
+      sideOption: o.sideoption,
+      spiralBinding: o.spiralbinding,
+      totalPages: o.totalpages,
+      totalCost: o.totalcost,
+      status: o.status,
+      createdAt: o.createdat,
+      attachedFiles: o.filenames
+        ? o.filenames.split(", ").map((n) => ({ name: n }))
         : [],
     }));
-    res.json({ orders: withFiles });
+
+    res.json({ orders: normalized });
   } catch (err) {
     console.error("❌ Error fetching orders:", err);
     res.status(500).json({ error: "Failed to fetch orders." });
