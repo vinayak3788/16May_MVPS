@@ -1,3 +1,4 @@
+// src/backend/routes/orderRoutes.js
 import express from "express";
 import multer from "multer";
 import {
@@ -130,9 +131,15 @@ router.post("/confirm-payment", async (req, res) => {
 
     if (order.printType !== "stationery") {
       html += `
-        <p><strong>Print Type:</strong> ${order.printType === "color" ? "Color" : "Black & White"}</p>
-        <p><strong>Print Side:</strong> ${order.sideOption === "double" ? "Back to Back" : "Single Sided"}</p>
-        <p><strong>Spiral Binding:</strong> ${order.spiralBinding ? "Yes" : "No"}</p>`;
+        <p><strong>Print Type:</strong> ${
+          order.printType === "color" ? "Color" : "Black & White"
+        }</p>
+        <p><strong>Print Side:</strong> ${
+          order.sideOption === "double" ? "Back to Back" : "Single Sided"
+        }</p>
+        <p><strong>Spiral Binding:</strong> ${
+          order.spiralBinding ? "Yes" : "No"
+        }</p>`;
     }
 
     const parts = order.fileNames.split(", ").filter(Boolean);
