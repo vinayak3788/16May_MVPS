@@ -23,7 +23,12 @@ await initDB();
 
 const app = express();
 app.use((req, res, next) => {
-  console.log("→", req.method, req.url, "query:", req.query);
+  console.log(
+    `→ ${req.method} ${req.path} query:`,
+    req.query,
+    "body:",
+    req.body,
+  );
   next();
 });
 
