@@ -1,18 +1,17 @@
 // src/backend/routes/otpRoutes.js
 
-import dotenv from "dotenv";
-dotenv.config({ path: ".env" }); // ✅ Add this at the top
-
 import express from "express";
 import axios from "axios";
 
 const router = express.Router();
-
 const TWOFACTOR_API_KEY = process.env.TWOFACTOR_API_KEY;
 
-// 📨 Send OTP
+/**
+ * Send OTP
+ * Expects { mobileNumber: "1234567890" } in body
+ */
 router.post("/send-otp", async (req, res) => {
-  const { mobileNumber } = req.body; // ✅ Corrected to expect "mobileNumber"
+  const { mobileNumber } = req.body;
   if (!mobileNumber || !/^\d{10}$/.test(mobileNumber)) {
     return res
       .status(400)
@@ -23,15 +22,27 @@ router.post("/send-otp", async (req, res) => {
     const response = await axios.get(
       `https://2factor.in/API/V1/${TWOFACTOR_API_KEY}/SMS/+91${mobileNumber}/AUTOGEN`,
     );
-    const sessionId = response.data?.Details;
-    res.json({ sessionId });
+    const { Status, Details, Message } = response.data;
+
+    if (Status !== "Success") {
+      console.warn("2Factor send-otp error:", response.data);
+      return res.status(502).json({ error: Message || "OTP service error" });
+    }
+
+    // Details contains the session ID on success
+    return res.json({ sessionId: Details });
   } catch (err) {
-    console.error("❌ Failed to send OTP:", err);
-    res.status(500).json({ error: "Failed to send OTP." });
+    console.error("❌ Failed to send OTP:", err.response?.data || err.message);
+    return res.status(500).json({
+      error: err.response?.data?.Message || "Failed to send OTP.",
+    });
   }
 });
 
-// ✅ Verify OTP
+/**
+ * Verify OTP
+ * Expects { sessionId: "...", otp: "123456" } in body
+ */
 router.post("/verify-otp", async (req, res) => {
   const { sessionId, otp } = req.body;
   if (!sessionId || !otp) {
@@ -42,12 +53,23 @@ router.post("/verify-otp", async (req, res) => {
     const response = await axios.get(
       `https://2factor.in/API/V1/${TWOFACTOR_API_KEY}/SMS/VERIFY/${sessionId}/${otp}`,
     );
+    const { Status, Details, Message } = response.data;
 
-    const success = response.data?.Details === "OTP Matched";
-    res.json({ success });
+    if (Status !== "Success") {
+      console.warn("2Factor verify-otp error:", response.data);
+      return res.status(502).json({ error: Message || "OTP service error" });
+    }
+
+    // Details === "OTP Matched" on a correct OTP
+    return res.json({ success: Details === "OTP Matched" });
   } catch (err) {
-    console.error("❌ Failed to verify OTP:", err);
-    res.status(500).json({ error: "Failed to verify OTP." });
+    console.error(
+      "❌ Failed to verify OTP:",
+      err.response?.data || err.message,
+    );
+    return res.status(500).json({
+      error: err.response?.data?.Message || "Failed to verify OTP.",
+    });
   }
 });
 
