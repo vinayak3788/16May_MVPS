@@ -2,6 +2,7 @@
 
 import { Pool } from "pg";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const pool = new Pool({
@@ -51,8 +52,9 @@ export const getUserRole = async (email) => {
 };
 
 export const updateUserRole = async (email, role) => {
-  if (email === "vinayak3788@gmail.com")
+  if (email === "vinayak3788@gmail.com") {
     throw new Error("Cannot update role for protected admin.");
+  }
   await pool.query(`UPDATE users SET role = $1 WHERE email = $2`, [
     role,
     email,
@@ -60,18 +62,22 @@ export const updateUserRole = async (email, role) => {
 };
 
 export const blockUser = async (email) => {
-  if (email === "vinayak3788@gmail.com")
+  if (email === "vinayak3788@gmail.com") {
     throw new Error("Cannot block protected admin.");
-  await pool.query(`UPDATE users SET blocked = 1 WHERE email = $1`, [email]);
+  }
+  await pool.query(`UPDATE users SET blocked = TRUE WHERE email = $1`, [email]);
 };
 
 export const unblockUser = async (email) => {
-  await pool.query(`UPDATE users SET blocked = 0 WHERE email = $1`, [email]);
+  await pool.query(`UPDATE users SET blocked = FALSE WHERE email = $1`, [
+    email,
+  ]);
 };
 
 export const deleteUser = async (email) => {
-  if (email === "vinayak3788@gmail.com")
+  if (email === "vinayak3788@gmail.com") {
     throw new Error("Cannot delete protected admin.");
+  }
   await pool.query(`DELETE FROM users WHERE email = $1`, [email]);
 };
 
@@ -80,7 +86,7 @@ export const isUserBlocked = async (email) => {
     `SELECT blocked FROM users WHERE email = $1`,
     [email],
   );
-  return rows[0]?.blocked === 1;
+  return rows[0]?.blocked === true;
 };
 
 // ——— Profile APIs ———
@@ -89,22 +95,21 @@ export const isUserBlocked = async (email) => {
  * Insert or update a profile record.
  * profile = { email, firstName, lastName, mobileNumber, mobileVerified }
  */
-export const upsertProfile = async (profile) => {
-  const {
-    email,
-    firstName,
-    lastName,
-    mobileNumber,
-    mobileVerified = false,
-  } = profile;
+export const upsertProfile = async ({
+  email,
+  firstName,
+  lastName,
+  mobileNumber,
+  mobileVerified = false,
+}) => {
   await pool.query(
-    `INSERT INTO profiles(email, firstName, lastName, mobileNumber, mobileVerified)
+    `INSERT INTO profiles(email, firstname, lastname, mobilenumber, mobileverified)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (email) DO UPDATE SET
-       firstName = EXCLUDED.firstName,
-       lastName = EXCLUDED.lastName,
-       mobileNumber = EXCLUDED.mobileNumber,
-       mobileVerified = EXCLUDED.mobileVerified`,
+       firstname      = EXCLUDED.firstname,
+       lastname       = EXCLUDED.lastname,
+       mobilenumber   = EXCLUDED.mobilenumber,
+       mobileverified = EXCLUDED.mobileverified`,
     [email, firstName, lastName, mobileNumber, mobileVerified],
   );
 };
@@ -112,18 +117,18 @@ export const upsertProfile = async (profile) => {
 export const getProfile = async (email) => {
   const { rows } = await pool.query(
     `
-    SELECT 
+    SELECT
       p.email,
-      p.firstname    AS "firstName",
-      p.lastname     AS "lastName",
-      p.mobilenumber AS "mobileNumber",
+      p.firstname     AS "firstName",
+      p.lastname      AS "lastName",
+      p.mobilenumber  AS "mobileNumber",
       p.mobileverified AS "mobileVerified",
       u.blocked,
       u.role
     FROM profiles p
     JOIN users u ON p.email = u.email
     WHERE p.email = $1
-  `,
+    `,
     [email],
   );
   return rows[0] || null;
@@ -131,23 +136,24 @@ export const getProfile = async (email) => {
 
 // ——— Order APIs ———
 
-export const createOrder = async (order) => {
-  const {
-    userEmail,
-    fileNames = "",
-    printType,
-    sideOption,
-    spiralBinding = 0,
-    totalPages = 0,
-    totalCost,
-    createdAt,
-  } = order;
-
+export const createOrder = async ({
+  userEmail,
+  fileNames = "",
+  printType,
+  sideOption,
+  spiralBinding = false,
+  totalPages = 0,
+  totalCost,
+  createdAt,
+}) => {
   // 1) insert order, get its id
   const insert = await pool.query(
-    `INSERT INTO orders(userEmail, fileNames, printType, sideOption, spiralBinding, totalPages, totalCost, createdAt)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-     RETURNING id`,
+    `INSERT INTO orders(
+       userEmail, fileNames, printType,
+       sideOption, spiralBinding, totalPages,
+       totalCost, createdAt
+     ) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id`,
     [
       userEmail,
       fileNames,
@@ -160,10 +166,10 @@ export const createOrder = async (order) => {
     ],
   );
   const id = insert.rows[0].id;
-  const orderNumber = `ORD${id.toString().padStart(4, "0")}`;
+  const orderNumber = `ORD${String(id).padStart(4, "0")}`;
 
   // 2) update the orderNumber
-  await pool.query(`UPDATE orders SET orderNumber = $1 WHERE id = $2`, [
+  await pool.query(`UPDATE orders SET ordernumber = $1 WHERE id = $2`, [
     orderNumber,
     id,
   ]);
@@ -173,7 +179,7 @@ export const createOrder = async (order) => {
 
 export const getAllOrders = async () => {
   const { rows } = await pool.query(
-    `SELECT * FROM orders ORDER BY createdAt DESC`,
+    `SELECT * FROM orders ORDER BY createdat DESC`,
   );
   return { orders: rows };
 };
@@ -193,6 +199,6 @@ export const updateOrderFiles = async (orderId, { fileNames, totalPages }) => {
 };
 
 // ——— Stationery Products (optional) ———
-// Add similar CRUD functions here if needed.
+// Add CRUD functions here as needed.
 
 export default pool;

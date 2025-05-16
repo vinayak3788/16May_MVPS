@@ -1,26 +1,38 @@
 // src/server/initAdmin.js
-import { open } from "sqlite";
-import sqlite3 from "sqlite3";
-import path from "path";
 
-const dbPath = path.resolve("data/orders.db");
+import pool from "../backend/db.js";
 
-const init = async () => {
-  const db = await open({ filename: dbPath, driver: sqlite3.Database });
+async function initAdmin() {
+  try {
+    // ensure users table exists (adjust columns to match your schema)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        email TEXT PRIMARY KEY,
+        role TEXT DEFAULT 'user',
+        protected BOOLEAN DEFAULT false,
+        blocked BOOLEAN DEFAULT false
+      )
+    `);
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      email TEXT PRIMARY KEY,
-      role TEXT DEFAULT 'user'
-    )
-  `);
+    // upsert super-admin
+    await pool.query(
+      `
+      INSERT INTO users (email, role, protected, blocked)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (email) DO UPDATE
+        SET role = EXCLUDED.role,
+            protected = EXCLUDED.protected,
+            blocked = EXCLUDED.blocked
+      `,
+      ["vinayak3788@gmail.com", "admin", true, false],
+    );
 
-  await db.run(`
-    INSERT OR REPLACE INTO users (email, role)
-    VALUES ('vinayak3788@gmail.com', 'admin')
-  `);
+    console.log("✅ Super-admin user inserted/updated.");
+    process.exit(0);
+  } catch (err) {
+    console.error("❌ initAdmin failed:", err);
+    process.exit(1);
+  }
+}
 
-  console.log("✅ Admin user inserted.");
-};
-
-init();
+initAdmin();

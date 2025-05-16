@@ -45,8 +45,11 @@ router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
-    // Ensure user record exists
     await ensureUserRole(email);
+    const blocked = await isUserBlocked(email);
+    if (blocked) {
+      return res.status(403).json({ error: "User is blocked" });
+    }
     const role = await getUserRole(email);
     res.json({ role });
   } catch (err) {

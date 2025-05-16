@@ -1,9 +1,8 @@
 // src/backend/routes/stationeryRoutes.js
 
 import express from "express";
-import { open } from "sqlite";
-import sqlite3 from "sqlite3";
 import multer from "multer";
+import pool from "../db.js";
 import { uploadImageToS3 } from "../../config/s3StationeryUploader.js";
 
 const router = express.Router();
@@ -12,42 +11,45 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Connect DB
-async function connectDB() {
-  return open({
-    filename: "./data/orders.db",
-    driver: sqlite3.Database,
-  });
-}
+// Ensure stationery_products table exists
+const ensureTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stationery_products (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      price REAL NOT NULL,
+      discount REAL DEFAULT 0,
+      images JSONB DEFAULT '[]',
+      createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
 
 // Admin: Add new product
 router.post(
   "/admin/stationery/add",
   upload.array("images", 5),
   async (req, res) => {
+    const { name, description, price, discount } = req.body;
+    if (!name || !price) {
+      return res.status(400).json({ error: "Name and Price are required" });
+    }
     try {
-      const db = await connectDB();
-      const { name, description, price, discount } = req.body;
-      const files = req.files;
-
-      if (!name || !price) {
-        return res.status(400).json({ error: "Name and Price are required" });
-      }
+      await ensureTable();
 
       const uploadedUrls = [];
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const { s3Url } = await uploadImageToS3(
-            file.buffer,
-            file.originalname,
-          );
-          uploadedUrls.push(s3Url);
-        }
+      for (const file of req.files || []) {
+        const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
+        uploadedUrls.push(s3Url);
       }
 
       const imagesJson = JSON.stringify(uploadedUrls);
-      await db.run(
-        `INSERT INTO stationery_products (name, description, price, discount, images) VALUES (?, ?, ?, ?, ?)`,
+
+      await pool.query(
+        `INSERT INTO stationery_products
+           (name, description, price, discount, images)
+         VALUES ($1, $2, $3, $4, $5)`,
         [
           name,
           description || "",
@@ -57,9 +59,9 @@ router.post(
         ],
       );
 
-      res.status(200).json({ message: "Product added successfully" });
-    } catch (error) {
-      console.error("❌ Error adding product:", error);
+      res.json({ message: "Product added successfully" });
+    } catch (err) {
+      console.error("❌ Error adding product:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -70,35 +72,36 @@ router.put(
   "/admin/stationery/update/:id",
   upload.array("images", 5),
   async (req, res) => {
+    const { id } = req.params;
+    const { name, description, price, discount, existing } = req.body;
+    if (!name || !price) {
+      return res.status(400).json({ error: "Name and Price are required" });
+    }
     try {
-      const db = await connectDB();
-      const { name, description, price, discount, existing } = req.body;
-      const { id } = req.params;
-      const files = req.files;
+      await ensureTable();
 
-      if (!name || !price) {
-        return res.status(400).json({ error: "Name and Price are required" });
+      const keep = Array.isArray(existing)
+        ? existing
+        : existing
+          ? JSON.parse(existing)
+          : [];
+      const uploadedUrls = [...keep];
+
+      for (const file of req.files || []) {
+        const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
+        uploadedUrls.push(s3Url);
       }
 
-      let imageUrls = [];
-      if (existing) {
-        imageUrls = JSON.parse(existing);
-      }
+      const imagesJson = JSON.stringify(uploadedUrls);
 
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const { s3Url } = await uploadImageToS3(
-            file.buffer,
-            file.originalname,
-          );
-          imageUrls.push(s3Url);
-        }
-      }
-
-      const imagesJson = JSON.stringify(imageUrls);
-
-      await db.run(
-        `UPDATE stationery_products SET name = ?, description = ?, price = ?, discount = ?, images = ? WHERE id = ?`,
+      await pool.query(
+        `UPDATE stationery_products
+           SET name = $1,
+               description = $2,
+               price = $3,
+               discount = $4,
+               images = $5
+         WHERE id = $6`,
         [
           name,
           description || "",
@@ -109,9 +112,9 @@ router.put(
         ],
       );
 
-      res.status(200).json({ message: "Product updated successfully" });
-    } catch (error) {
-      console.error("❌ Error updating product:", error);
+      res.json({ message: "Product updated successfully" });
+    } catch (err) {
+      console.error("❌ Error updating product:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -119,14 +122,13 @@ router.put(
 
 // Admin: Delete product
 router.delete("/admin/stationery/delete/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const db = await connectDB();
-    const { id } = req.params;
-
-    await db.run(`DELETE FROM stationery_products WHERE id = ?`, id);
-    res.status(200).json({ message: "Product deleted successfully" });
-  } catch (error) {
-    console.error("❌ Error deleting product:", error);
+    await ensureTable();
+    await pool.query(`DELETE FROM stationery_products WHERE id = $1`, [id]);
+    res.json({ message: "Product deleted successfully" });
+  } catch (err) {
+    console.error("❌ Error deleting product:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -134,19 +136,16 @@ router.delete("/admin/stationery/delete/:id", async (req, res) => {
 // User: Get all products
 router.get("/stationery/products", async (req, res) => {
   try {
-    const db = await connectDB();
-    const products = await db.all(
-      `SELECT * FROM stationery_products ORDER BY createdAt DESC`,
+    await ensureTable();
+    const { rows } = await pool.query(
+      `SELECT id, name, description, price, discount, images, createdAt
+         FROM stationery_products
+        ORDER BY createdAt DESC`,
     );
-
-    const formatted = products.map((p) => ({
-      ...p,
-      images: p.images ? JSON.parse(p.images) : [],
-    }));
-
-    res.status(200).json(formatted);
-  } catch (error) {
-    console.error("❌ Error fetching products:", error);
+    // rows.images is already JSONB
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Error fetching products:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
