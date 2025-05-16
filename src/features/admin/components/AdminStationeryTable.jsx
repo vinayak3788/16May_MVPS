@@ -1,3 +1,4 @@
+// src/features/admin/components/AdminStationeryTable.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -12,7 +13,8 @@ export default function AdminStationeryTable() {
     setLoading(true);
     try {
       const res = await axios.get("/api/stationery/products");
-      setProducts(res.data || []);
+      // Use the products array from response
+      setProducts(Array.isArray(res.data.products) ? res.data.products : []);
     } catch (err) {
       console.error("❌ Failed to load products:", err);
       toast.error("Failed to load stationery.");
