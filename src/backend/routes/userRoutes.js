@@ -62,10 +62,10 @@ router.get("/get-users", async (req, res) => {
          u.email,
          u.role,
          u.blocked,
-         p.mobile           AS "mobileNumber",
-         p.first_name       AS "firstName",
-         p.last_name        AS "lastName",
-         p.mobile_verified  AS "mobileVerified"
+         p.mobile_number   AS "mobileNumber",
+         p.first_name      AS "firstName",
+         p.last_name       AS "lastName",
+         p.mobile_verified AS "mobileVerified"
        FROM users u
        LEFT JOIN profiles p ON u.email = p.email
        ORDER BY u.email`,
