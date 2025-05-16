@@ -5,8 +5,7 @@ import pool from "../db.js";
 import { uploadImageToS3 } from "../../config/s3StationeryUploader.js";
 
 const router = express.Router();
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Ensure stationery_products table exists
 const ensureTable = async () => {
@@ -40,8 +39,7 @@ router.post(
         uploadedUrls.push(s3Url);
       }
       await pool.query(
-        `INSERT INTO stationery_products
-           (name, description, price, discount, images)
+        `INSERT INTO stationery_products (name, description, price, discount, images)
          VALUES ($1, $2, $3, $4, $5)`,
         [
           name,
@@ -120,23 +118,15 @@ router.get("/stationery/products", async (req, res) => {
   try {
     await ensureTable();
     const { rows } = await pool.query(
-      `SELECT id, name, description, price, discount, images, created_at
-         FROM stationery_products
-        ORDER BY created_at DESC`,
+      `SELECT id, name, description, price, discount, images,
+              created_at AS "createdAt"
+       FROM stationery_products
+       ORDER BY created_at DESC`,
     );
-    const products = rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      description: r.description,
-      price: r.price,
-      discount: r.discount,
-      images: r.images,
-      createdAt: r.created_at,
-    }));
-    res.json({ products });
+    res.json({ products: rows });
   } catch (err) {
     console.error("❌ Error fetching products:", err);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Failed to fetch products." });
   }
 });
 

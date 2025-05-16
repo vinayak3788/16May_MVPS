@@ -16,7 +16,7 @@ const router = express.Router();
 
 console.log("🛠️  userRoutes.js loaded — unblock route is in play");
 
-// ——— Role management APIs ———
+// ——— Change role (admin only) ———
 router.post("/update-role", async (req, res) => {
   const { email, role } = req.body;
   if (!email || !role) {
@@ -36,7 +36,7 @@ router.post("/update-role", async (req, res) => {
   }
 });
 
-// ——— Fetch user role ———
+// ——— Get user role ———
 router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -54,24 +54,22 @@ router.get("/get-role", async (req, res) => {
   }
 });
 
-// ——— List all users (normalized keys) ———
+// ——— List all users ———
 router.get("/get-users", async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT 
-        u.email, 
-        u.role, 
-        u.blocked, 
-        p."mobileNumber" AS "mobileNumber", 
-        p."firstName"  AS "firstName", 
-        p."lastName"   AS "lastName", 
-        p."mobileVerified" AS "mobileVerified"
-      FROM users u
-      LEFT JOIN profiles p ON u.email = p.email
-      ORDER BY u.email`,
+      `SELECT
+         u.email,
+         u.role,
+         u.blocked,
+         p.mobile           AS "mobileNumber",
+         p.first_name       AS "firstName",
+         p.last_name        AS "lastName",
+         p.mobile_verified  AS "mobileVerified"
+       FROM users u
+       LEFT JOIN profiles p ON u.email = p.email
+       ORDER BY u.email`,
     );
-
-    // send rows directly since keys are already camelCase
     res.json({ users: rows });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
@@ -132,7 +130,7 @@ router.post("/delete-user", async (req, res) => {
   }
 });
 
-// ——— Update profile ———
+// ——— Update user profile ———
 router.post("/update-profile", async (req, res) => {
   const { email, mobileNumber, firstName, lastName, mobileVerified } = req.body;
   if (!email) {
@@ -153,7 +151,7 @@ router.post("/update-profile", async (req, res) => {
   }
 });
 
-// ——— Fetch profile ———
+// ——— Fetch profile details ———
 router.get("/get-profile", async (req, res) => {
   const email = req.query.email;
   if (!email) {
@@ -191,7 +189,7 @@ router.post("/verify-mobile-manual", async (req, res) => {
   }
 });
 
-// ——— Create user profile ———
+// ——— Create new user profile ———
 router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
