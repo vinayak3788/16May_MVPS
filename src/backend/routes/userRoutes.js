@@ -4,17 +4,16 @@
 console.log("🛠️  userRoutes.js loaded — unblock route is in play");
 
 import express from "express";
-import {
-  updateUserRole,
+import pool, {
+  ensureUserRole,
   getUserRole,
+  updateUserRole,
   blockUser,
   unblockUser,
   deleteUser,
-  ensureUserRole,
   isUserBlocked,
-  createUserProfile,
-  getProfile,
   upsertProfile,
+  getProfile,
 } from "../db.js";
 
 const router = express.Router();
@@ -44,8 +43,8 @@ router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
-    // ensure record exists and get role
-    const role = await ensureUserRole(email);
+    await ensureUserRole(email);
+    const role = await getUserRole(email);
     res.json({ role });
   } catch (err) {
     console.error("❌ Failed to get user role:", err);
@@ -57,15 +56,20 @@ router.get("/get-role", async (req, res) => {
 
 router.get("/get-users", async (req, res) => {
   try {
-    // fetch via new getProfile + role table join if needed
-    // direct SQL query using pool:
-    const { rows: users } = await req.app.locals.db.query(
-      `SELECT u.email, u.role, u.blocked, p.firstName, p.lastName, p.mobileNumber, p.mobileVerified
-         FROM users u
-         LEFT JOIN profiles p ON u.email = p.email
-         ORDER BY u.email`,
-    );
-    res.json({ users });
+    const { rows } = await pool.query(`
+      SELECT 
+        u.email, 
+        u.role, 
+        u.blocked, 
+        p.mobileNumber, 
+        p.firstName, 
+        p.lastName, 
+        p.mobileVerified
+      FROM users u
+      LEFT JOIN profiles p ON u.email = p.email
+      ORDER BY u.email
+    `);
+    res.json({ users: rows });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
     res.status(500).json({ error: "Failed to fetch users." });
@@ -87,20 +91,25 @@ router.post("/block-user", async (req, res) => {
 });
 
 // ——— Unblock user ———
+
 router.post("/unblock-user", async (req, res) => {
   const { email } = req.body;
   console.log("🛠️  unblock-user handler hit for", email);
-
-  if (!email) {
-    return res.status(400).json({ error: "Email required" });
-  }
+  if (!email) return res.status(400).json({ error: "Email required" });
 
   try {
-    const blocked = await isUserBlocked(email);
-    if (!blocked) {
-      return res.json({ message: "✅ User was not blocked." });
+    const { rows } = await pool.query(
+      `SELECT email FROM users WHERE email = $1`,
+      [email],
+    );
+    if (rows.length === 0) {
+      console.warn(`→ unblock-user: no such user ${email}`);
+      return res.json({
+        message: "✅ User was not blocked (no record found).",
+      });
     }
     await unblockUser(email);
+    console.log(`→ Successfully unblocked ${email}`);
     return res.json({ message: "✅ User unblocked successfully." });
   } catch (err) {
     console.error("❌ Error inside unblock-user:", err);
@@ -125,7 +134,7 @@ router.post("/delete-user", async (req, res) => {
 // ——— Update user profile ———
 
 router.post("/update-profile", async (req, res) => {
-  const { email, mobileNumber, firstName, lastName, mobileVerified } = req.body;
+  const { email, firstName, lastName, mobileNumber, mobileVerified } = req.body;
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
@@ -148,9 +157,7 @@ router.post("/update-profile", async (req, res) => {
 
 router.get("/get-profile", async (req, res) => {
   const email = req.query.email;
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
+  if (!email) return res.status(400).json({ error: "Email is required" });
   try {
     const profile = await getProfile(email);
     if (!profile) {
@@ -168,13 +175,17 @@ router.get("/get-profile", async (req, res) => {
 router.post("/verify-mobile-manual", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
+
   try {
     const profile = await getProfile(email);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
-    const newFlag = profile.mobileVerified ? false : true;
-    await upsertProfile({ ...profile, mobileVerified: newFlag });
+    const newFlag = !profile.mobileVerified;
+    await pool.query(
+      `UPDATE profiles SET mobileVerified = $1 WHERE email = $2`,
+      [newFlag, email],
+    );
     res.json({ message: "✅ Mobile verification status updated!" });
   } catch (err) {
     console.error("❌ Failed to toggle mobile verification:", err);
@@ -188,7 +199,8 @@ router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
   try {
-    await createUserProfile({ email, firstName, lastName, mobileNumber });
+    await ensureUserRole(email);
+    await upsertProfile({ email, firstName, lastName, mobileNumber });
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Failed to create user profile:", err);
