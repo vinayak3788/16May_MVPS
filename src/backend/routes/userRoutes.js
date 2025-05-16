@@ -4,17 +4,17 @@
 console.log("🛠️  userRoutes.js loaded — unblock route is in play");
 
 import express from "express";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
-import path from "path";
 import {
   updateUserRole,
   getUserRole,
   blockUser,
-  unblockUser as dbUnblockUser,
+  unblockUser,
   deleteUser,
-  initDb,
   ensureUserRole,
+  isUserBlocked,
+  createUserProfile,
+  getProfile,
+  upsertProfile,
 } from "../db.js";
 
 const router = express.Router();
@@ -44,8 +44,8 @@ router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
-    await ensureUserRole(email);
-    const role = await getUserRole(email);
+    // ensure record exists and get role
+    const role = await ensureUserRole(email);
     res.json({ role });
   } catch (err) {
     console.error("❌ Failed to get user role:", err);
@@ -57,23 +57,14 @@ router.get("/get-role", async (req, res) => {
 
 router.get("/get-users", async (req, res) => {
   try {
-    const db = await open({
-      filename: path.resolve("data/orders.db"),
-      driver: sqlite3.Database,
-    });
-    const users = await db.all(`
-      SELECT 
-        u.email, 
-        u.role, 
-        u.blocked, 
-        p.mobileNumber, 
-        p.firstName, 
-        p.lastName, 
-        p.mobileVerified
-      FROM users u
-      LEFT JOIN profiles p ON u.email = p.email
-      ORDER BY u.email
-    `);
+    // fetch via new getProfile + role table join if needed
+    // direct SQL query using pool:
+    const { rows: users } = await req.app.locals.db.query(
+      `SELECT u.email, u.role, u.blocked, p.firstName, p.lastName, p.mobileNumber, p.mobileVerified
+         FROM users u
+         LEFT JOIN profiles p ON u.email = p.email
+         ORDER BY u.email`,
+    );
     res.json({ users });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
@@ -96,7 +87,6 @@ router.post("/block-user", async (req, res) => {
 });
 
 // ——— Unblock user ———
-// ALWAYS returns 200 so front-end can clear UI state
 router.post("/unblock-user", async (req, res) => {
   const { email } = req.body;
   console.log("🛠️  unblock-user handler hit for", email);
@@ -106,22 +96,11 @@ router.post("/unblock-user", async (req, res) => {
   }
 
   try {
-    const db = await open({
-      filename: path.resolve("data/orders.db"),
-      driver: sqlite3.Database,
-    });
-    const existing = await db.get(`SELECT email FROM users WHERE email = ?`, [
-      email,
-    ]);
-    if (!existing) {
-      console.warn(`→ unblock-user: no such user ${email}`);
-      return res.json({
-        message: "✅ User was not blocked (no record found).",
-      });
+    const blocked = await isUserBlocked(email);
+    if (!blocked) {
+      return res.json({ message: "✅ User was not blocked." });
     }
-
-    await dbUnblockUser(email);
-    console.log(`→ Successfully unblocked ${email}`);
+    await unblockUser(email);
     return res.json({ message: "✅ User unblocked successfully." });
   } catch (err) {
     console.error("❌ Error inside unblock-user:", err);
@@ -151,57 +130,16 @@ router.post("/update-profile", async (req, res) => {
     return res.status(400).json({ error: "Email is required" });
   }
   try {
-    const db = await open({
-      filename: path.resolve("data/orders.db"),
-      driver: sqlite3.Database,
+    await upsertProfile({
+      email,
+      firstName,
+      lastName,
+      mobileNumber,
+      mobileVerified,
     });
-    const existingProfile = await db.get(
-      `SELECT * FROM profiles WHERE email = ?`,
-      [email],
-    );
-    const verifiedFlag =
-      typeof mobileVerified === "boolean"
-        ? mobileVerified
-          ? 1
-          : 0
-        : typeof mobileVerified === "number"
-          ? mobileVerified
-          : 0;
-
-    if (existingProfile) {
-      await db.run(
-        `UPDATE profiles SET 
-           mobileNumber = ?, 
-           firstName = ?, 
-           lastName = ?, 
-           mobileVerified = ?
-         WHERE email = ?`,
-        [
-          mobileNumber ?? existingProfile.mobileNumber,
-          firstName ?? existingProfile.firstName,
-          lastName ?? existingProfile.lastName,
-          verifiedFlag,
-          email,
-        ],
-      );
-    } else {
-      await db.run(
-        `INSERT INTO profiles 
-           (email, mobileNumber, firstName, lastName, mobileVerified) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          email,
-          mobileNumber || "",
-          firstName || "",
-          lastName || "",
-          verifiedFlag,
-        ],
-      );
-    }
-
     res.json({ message: "✅ Profile updated successfully!" });
   } catch (err) {
-    console.error("❌ Failed to update profile:", err.message);
+    console.error("❌ Failed to update profile:", err);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -214,31 +152,13 @@ router.get("/get-profile", async (req, res) => {
     return res.status(400).json({ error: "Email is required" });
   }
   try {
-    const db = await open({
-      filename: path.resolve("data/orders.db"),
-      driver: sqlite3.Database,
-    });
-    const profile = await db.get(
-      `
-      SELECT 
-        p.email, 
-        p.firstName, 
-        p.lastName, 
-        p.mobileNumber, 
-        p.mobileVerified, 
-        u.blocked 
-      FROM profiles p
-      JOIN users u ON p.email = u.email
-      WHERE p.email = ?
-    `,
-      [email],
-    );
+    const profile = await getProfile(email);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
     res.json(profile);
   } catch (err) {
-    console.error("❌ Failed to fetch profile:", err.message);
+    console.error("❌ Failed to fetch profile:", err);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
@@ -249,24 +169,15 @@ router.post("/verify-mobile-manual", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
   try {
-    const db = await open({
-      filename: path.resolve("data/orders.db"),
-      driver: sqlite3.Database,
-    });
-    const profile = await db.get(`SELECT * FROM profiles WHERE email = ?`, [
-      email,
-    ]);
+    const profile = await getProfile(email);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
-    const newFlag = profile.mobileVerified ? 0 : 1;
-    await db.run(`UPDATE profiles SET mobileVerified = ? WHERE email = ?`, [
-      newFlag,
-      email,
-    ]);
+    const newFlag = profile.mobileVerified ? false : true;
+    await upsertProfile({ ...profile, mobileVerified: newFlag });
     res.json({ message: "✅ Mobile verification status updated!" });
   } catch (err) {
-    console.error("❌ Failed to toggle mobile verification:", err.message);
+    console.error("❌ Failed to toggle mobile verification:", err);
     res.status(500).json({ error: "Failed to toggle mobile verification." });
   }
 });
@@ -277,14 +188,7 @@ router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required" });
   try {
-    const db = await initDb();
-    await ensureUserRole(email);
-    await db.run(
-      `INSERT OR REPLACE INTO profiles 
-        (email, firstName, lastName, mobileNumber) 
-       VALUES (?, ?, ?, ?)`,
-      [email, firstName, lastName, mobileNumber],
-    );
+    await createUserProfile({ email, firstName, lastName, mobileNumber });
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Failed to create user profile:", err);

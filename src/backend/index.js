@@ -22,6 +22,10 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 await initDB();
 
 const app = express();
+app.use((req, res, next) => {
+  console.log("→", req.method, req.url, "query:", req.query);
+  next();
+});
 
 // 🚀 Middleware setup
 app.use(cors()); // Enable CORS for all origins
