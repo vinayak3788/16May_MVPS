@@ -17,7 +17,7 @@ const ensureTable = async () => {
       price REAL NOT NULL,
       discount REAL DEFAULT 0,
       images JSONB DEFAULT '[]',
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      createdat TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
 };
@@ -118,10 +118,16 @@ router.get("/stationery/products", async (req, res) => {
   try {
     await ensureTable();
     const { rows } = await pool.query(
-      `SELECT id, name, description, price, discount, images,
-              created_at AS "createdAt"
+      `SELECT
+         id,
+         name,
+         description,
+         price,
+         discount,
+         images,
+         createdat AS "createdAt"
        FROM stationery_products
-       ORDER BY created_at DESC`,
+       ORDER BY createdat DESC`,
     );
     res.json({ products: rows });
   } catch (err) {
