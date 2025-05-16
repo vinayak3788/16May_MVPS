@@ -165,28 +165,19 @@ router.post("/update-profile", async (req, res) => {
 
 router.get("/get-profile", async (req, res) => {
   const email = req.query.email;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
   try {
-    const { rows } = await pool.query(
-      `SELECT
-         u.email,
-         u.role,
-         p."firstName"   AS "firstName",
-         p."lastName"    AS "lastName",
-         p."mobileNumber"   AS "mobileNumber",
-         p."mobileVerified" AS "mobileVerified",
-         u.blocked
-       FROM users u
-       LEFT JOIN profiles p ON u.email = p.email
-       WHERE u.email = $1`,
-      [email],
-    );
-    const profile = rows[0];
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
-    res.json(profile);
+    const profile = await getProfile(email);
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+    // profile already has { firstName, lastName, mobileNumber, mobileVerified, blocked, role }
+    return res.json(profile);
   } catch (err) {
     console.error("❌ Failed to fetch profile:", err);
-    res.status(500).json({ error: "Failed to fetch profile" });
+    return res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 
