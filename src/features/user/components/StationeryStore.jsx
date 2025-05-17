@@ -15,7 +15,7 @@ export default function StationeryStore() {
   const fetchProducts = async () => {
     try {
       const res = await axios.get("/api/stationery/products");
-      setProducts(res.data || []);
+      setProducts(Array.isArray(res.data.products) ? res.data.products : []);
     } catch (error) {
       console.error("❌ Error fetching stationery products:", error);
       toast.error("Failed to load stationery.");
