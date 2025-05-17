@@ -71,7 +71,7 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
 
     res.json({ orderNumber, totalCost });
   } catch (err) {
-    console.error("❌ Error saving print order:", err);
+    console.error("❌ Error saving print order:", err.stack || err);
     res.status(500).json({ error: "Failed to store print order." });
   }
 });
