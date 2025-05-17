@@ -1,12 +1,10 @@
 // src/api/userApi.js
 import axios from "axios";
 
-// … your other imports …
-
 // Fetch all users
 export const getAllUsers = async () => {
   const response = await axios.get("/api/get-users");
-  return response.data;
+  return response.data; // { users: [...] }
 };
 
 // Change a user’s role
@@ -39,8 +37,8 @@ export const verifyMobileManual = async (email) => {
   return response.data;
 };
 
-// Fetch all users (alias)
-export const getAllUsers = async () => {
-  const { users } = await axios.get("/api/get-users");
-  return { users };
+// Fetch user profile
+export const getProfile = async (email) => {
+  const response = await axios.get("/api/get-profile", { params: { email } });
+  return response.data;
 };
