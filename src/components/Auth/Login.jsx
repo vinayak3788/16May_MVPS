@@ -1,10 +1,10 @@
+// src/components/Auth/Login.jsx
 import React, { useState, useEffect } from "react";
 import { auth, googleProvider } from "../../config/firebaseConfig";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   getRedirectResult,
-  GoogleAuthProvider,
 } from "firebase/auth";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +19,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle post‐redirect Google result (if you still want to support redirects)
   useEffect(() => {
     getRedirectResult(auth)
       .then(async (result) => {
@@ -49,8 +48,10 @@ export default function Login() {
         return false;
       }
 
-      // ── NEW: force mobile verification once ──
-      if (!profile.mobileverified) {
+      // normalize mobileVerified (could be boolean or numeric)
+      const verified = [1, "1", true].includes(profile.mobileVerified);
+
+      if (!verified) {
         toast.error("Please verify your mobile number.");
         navigate("/verify-mobile");
         return false;
