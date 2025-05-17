@@ -37,8 +37,28 @@ export const verifyMobileManual = async (email) => {
   return response.data;
 };
 
-// Fetch user profile
+// Fetch a user’s profile
 export const getProfile = async (email) => {
-  const response = await axios.get("/api/get-profile", { params: { email } });
+  const response = await axios.get("/api/get-profile", {
+    params: { email },
+  });
+  return response.data;
+};
+
+// Update a user’s profile details
+export const updateProfile = async ({
+  email,
+  firstName,
+  lastName,
+  mobileNumber,
+  mobileVerified,
+}) => {
+  const response = await axios.post("/api/update-profile", {
+    email,
+    firstName,
+    lastName,
+    mobileNumber,
+    mobileVerified: mobileVerified ? 1 : 0,
+  });
   return response.data;
 };
