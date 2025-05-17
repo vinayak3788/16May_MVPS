@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 /**
  * Hook to validate that the current user's mobile number is verified.
- * Redirects to login or verification page as needed, but only toasts on real errors.
+ * Handles mobileVerified as numeric (0/1) or boolean.
  */
 export function useAuthCheck() {
   const navigate = useNavigate();
@@ -14,7 +14,6 @@ export function useAuthCheck() {
   const validateMobile = async () => {
     const user = auth.currentUser;
     if (!user) {
-      // Redirect silently if not logged in
       navigate("/login");
       return;
     }
@@ -28,14 +27,15 @@ export function useAuthCheck() {
       const { data } = await axios.get(
         `/api/get-profile?email=${encodeURIComponent(user.email)}`,
       );
-      const { mobileNumber, mobileVerified, role = "user" } = data;
+      const { mobileNumber, mobileVerified: rawVerified, role = "user" } = data;
 
-      // Admins bypass mobile verification
-      if (role === "admin") {
-        return;
-      }
+      // Normalize mobileVerified: accept 1, '1', true
+      const mobileVerified = [1, "1", true].includes(rawVerified);
 
-      // If not verified, prompt for manual verification
+      // Admins bypass
+      if (role === "admin") return;
+
+      // If missing or not verified
       if (!mobileNumber || !mobileVerified) {
         toast.error("Mobile number not verified.");
         navigate("/verify-mobile");
