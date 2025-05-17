@@ -54,7 +54,8 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
         file.originalname,
         orderNumber,
       );
-      uploaded.push({ name: cleanFileName, pages: parsedPages[i] || 0 });
+      const pages = Number(parsedPages[i]) || 0;
+      uploaded.push({ name: cleanFileName, pages });
     }
 
     if (req.body.items) {
