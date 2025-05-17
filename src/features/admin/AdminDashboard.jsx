@@ -5,17 +5,17 @@ import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 
 import { auth } from "../../config/firebaseConfig";
-import Layout from "../../components/Layout.jsx";
-import Button from "../../components/Button.jsx";
+import Layout from "../../components/Layout";
+import Button from "../../components/Button";
 
-import Sidebar from "./components/Sidebar.jsx";
-import OrdersTable from "./components/OrdersTable.jsx";
-import UsersTable from "./components/UsersTable.jsx";
-import AdminStationeryForm from "./components/AdminStationeryForm.jsx";
-import AdminStationeryTable from "./components/AdminStationeryTable.jsx";
-import EditUserModal from "./components/EditUserModal.jsx";
+import Sidebar from "./components/Sidebar";
+import OrdersTable from "./components/OrdersTable";
+import UsersTable from "./components/UsersTable";
+import AdminStationeryForm from "./components/AdminStationeryForm";
+import AdminStationeryTable from "./components/AdminStationeryTable";
+import EditUserModal from "./components/EditUserModal";
 
-import { getAllOrders, updateOrderStatus } from "../../api/orderApi.js";
+import { getAllOrders, updateOrderStatus } from "../../api/orderApi";
 import {
   getAllUsers,
   updateUserRole,
@@ -24,7 +24,7 @@ import {
   deleteUser,
   updateProfile,
   verifyMobileManual,
-} from "../../api/userApi.js";
+} from "../../api/userApi";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
     <Layout title="Admin Dashboard">
       <Toaster />
 
-      {/* Top controls */}
+      {/* Top-bar controls */}
       <div className="flex justify-end gap-2 mb-6">
         <Button variant="secondary" onClick={handleSwitchToUser}>
           Back to User View
@@ -221,8 +221,8 @@ export default function AdminDashboard() {
           {activeTab === "stationery" && (
             <>
               <h2 className="text-2xl font-bold mb-4">Manage Stationery</h2>
-              <AdminStationeryForm.jsx />
-              <AdminStationeryTable.jsx />
+              <AdminStationeryForm />
+              <AdminStationeryTable />
             </>
           )}
         </div>
