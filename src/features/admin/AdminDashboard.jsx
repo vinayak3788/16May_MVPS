@@ -8,7 +8,7 @@ import { auth } from "../../config/firebaseConfig";
 import Layout from "../../components/Layout";
 import Button from "../../components/Button";
 
-import Sidebar from "./components/Sidebar";
+import AdminNavBar from "./components/AdminNavBar";
 import OrdersTable from "./components/OrdersTable";
 import UsersTable from "./components/UsersTable";
 import AdminStationeryForm from "./components/AdminStationeryForm";
@@ -152,9 +152,7 @@ export default function AdminDashboard() {
     navigate("/login");
   };
 
-  const handleSwitchToUser = () => {
-    navigate("/userdashboard");
-  };
+  const switchToUser = () => navigate("/userdashboard");
 
   if (pending) {
     return <div className="text-center mt-10">Checking login…</div>;
@@ -164,9 +162,9 @@ export default function AdminDashboard() {
     <Layout title="Admin Dashboard">
       <Toaster />
 
-      {/* Top-bar controls */}
+      {/* Top controls */}
       <div className="flex justify-end gap-2 mb-6">
-        <Button variant="secondary" onClick={handleSwitchToUser}>
+        <Button variant="secondary" onClick={switchToUser}>
           Back to User View
         </Button>
         <Button variant="danger" onClick={handleLogout}>
@@ -174,58 +172,50 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      <div className="flex min-h-[70vh]">
-        {/* Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          fetchOrders={fetchOrders}
-          fetchUsers={fetchUsers}
-        />
+      {/* Replaced Sidebar with AdminNavBar */}
+      <AdminNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* Main content */}
-        <div className="flex-1 p-6 bg-white rounded shadow overflow-auto">
-          {activeTab === "orders" && (
-            <>
-              <h2 className="text-2xl font-bold mb-4">Manage Orders</h2>
-              <OrdersTable
-                orders={orders}
-                loading={loading}
-                handleStatusChange={handleStatusChange}
-              />
-            </>
-          )}
+      <div className="mt-6 p-6 bg-white rounded shadow overflow-auto min-h-[60vh]">
+        {activeTab === "orders" && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">Manage Orders</h2>
+            <OrdersTable
+              orders={orders}
+              loading={loading}
+              handleStatusChange={handleStatusChange}
+            />
+          </>
+        )}
 
-          {activeTab === "users" && (
-            <>
-              <h2 className="text-2xl font-bold mb-4">Manage Users</h2>
-              <UsersTable
-                users={users}
-                loading={loading}
-                handleRoleChange={handleRoleChange}
-                handleBlockUser={handleBlockUser}
-                handleUnblockUser={handleUnblockUser}
-                handleDeleteUser={handleDeleteUser}
-                handleVerifyMobile={handleVerifyMobile}
-                setEditUser={setEditUser}
-              />
-              <EditUserModal
-                editUser={editUser}
-                setEditUser={setEditUser}
-                handleEditUser={updateProfile}
-                saving={saving}
-              />
-            </>
-          )}
+        {activeTab === "users" && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">Manage Users</h2>
+            <UsersTable
+              users={users}
+              loading={loading}
+              handleRoleChange={handleRoleChange}
+              handleBlockUser={handleBlockUser}
+              handleUnblockUser={handleUnblockUser}
+              handleDeleteUser={handleDeleteUser}
+              handleVerifyMobile={handleVerifyMobile}
+              setEditUser={setEditUser}
+            />
+            <EditUserModal
+              editUser={editUser}
+              setEditUser={setEditUser}
+              handleEditUser={updateProfile}
+              saving={saving}
+            />
+          </>
+        )}
 
-          {activeTab === "stationery" && (
-            <>
-              <h2 className="text-2xl font-bold mb-4">Manage Stationery</h2>
-              <AdminStationeryForm />
-              <AdminStationeryTable />
-            </>
-          )}
-        </div>
+        {activeTab === "stationery" && (
+          <>
+            <h2 className="text-2xl font-bold mb-4">Manage Stationery</h2>
+            <AdminStationeryForm />
+            <AdminStationeryTable />
+          </>
+        )}
       </div>
     </Layout>
   );
