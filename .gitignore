@@ -3,4 +3,4 @@ node_modules/
 # Build output
 dist/
 # Local env files
-.env
+#.env
