@@ -14,7 +14,7 @@ import pool, {
 
 const router = express.Router();
 
-// ——— Change someone’s role (super-admin protected) ———
+// ——— Change someone’s role ———
 router.post("/update-role", async (req, res) => {
   const { email, role } = req.body;
   if (!email || !role) {
@@ -32,7 +32,7 @@ router.post("/update-role", async (req, res) => {
   }
 });
 
-// ——— Fetch (and auto-create) a user’s role ———
+// ——— Fetch a user’s role ———
 router.get("/get-role", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required." });
@@ -53,14 +53,14 @@ router.get("/get-role", async (req, res) => {
 router.get("/get-users", async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT 
-        u.email, 
-        u.role, 
-        u.blocked, 
-        p."mobileNumber", 
-        p."firstName", 
-        p."lastName", 
-        p."mobileVerified"
+      SELECT
+        u.email,
+        u.role,
+        u.blocked,
+        p.mobilenumber   AS "mobileNumber",
+        p.firstname      AS "firstName",
+        p.lastname       AS "lastName",
+        p.mobileverified AS "mobileVerified"
       FROM users u
       LEFT JOIN profiles p ON u.email = p.email
       ORDER BY u.email
@@ -133,15 +133,13 @@ router.post("/update-profile", async (req, res) => {
   }
 });
 
-// ——— Fetch profile details ———
+// ——— Fetch profile ———
 router.get("/get-profile", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email is required." });
   try {
     const profile = await getProfile(email);
-    if (!profile) {
-      return res.status(404).json({ error: "Profile not found." });
-    }
+    if (!profile) return res.status(404).json({ error: "Profile not found." });
     res.json(profile);
   } catch (err) {
     console.error("❌ Error fetching profile:", err);
@@ -149,15 +147,13 @@ router.get("/get-profile", async (req, res) => {
   }
 });
 
-// ——— Manual toggle mobile verified ———
+// ——— Manual toggle mobile verification ———
 router.post("/verify-mobile-manual", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required." });
   try {
     const profile = await getProfile(email);
-    if (!profile) {
-      return res.status(404).json({ error: "Profile not found." });
-    }
+    if (!profile) return res.status(404).json({ error: "Profile not found." });
     await upsertProfile({
       ...profile,
       mobileVerified: profile.mobileVerified ? 0 : 1,
@@ -169,12 +165,11 @@ router.post("/verify-mobile-manual", async (req, res) => {
   }
 });
 
-// ——— Create new user profile on signup ———
+// ——— Create user profile after signup ———
 router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
   if (!email) return res.status(400).json({ error: "Email is required." });
   try {
-    // ensure user record exists
     await ensureUserRole(email);
     await upsertProfile({
       email,
