@@ -1,36 +1,48 @@
+// src/features/user/components/useAuthCheck.js
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../../config/firebaseConfig";
 import toast from "react-hot-toast";
 
+/**
+ * Hook to validate that the current user's mobile number is verified.
+ * Redirects to login or verification page as needed, but only toasts on real errors.
+ */
 export function useAuthCheck() {
   const navigate = useNavigate();
 
   const validateMobile = async () => {
     const user = auth.currentUser;
     if (!user) {
-      toast.error("No user logged in. Please login first.");
+      // Redirect silently if not logged in
       navigate("/login");
       return;
     }
 
-    try {
-      const res = await axios.get(`/api/get-profile?email=${user.email}`);
-      const mobile = res.data?.mobileNumber;
-      const mobileVerified = res.data?.mobileVerified;
-      const role = res.data?.role || "user";
+    // Super-admin bypass
+    if (user.email === "vinayak3788@gmail.com") {
+      return;
+    }
 
-      if (!mobile || mobileVerified !== 1) {
-        if (role !== "admin") {
-          toast.error("Mobile number not verified.");
-          setTimeout(() => {
-            navigate("/verify-mobile");
-          }, 1000);
-        }
+    try {
+      const { data } = await axios.get(
+        `/api/get-profile?email=${encodeURIComponent(user.email)}`,
+      );
+      const { mobileNumber, mobileVerified, role = "user" } = data;
+
+      // Admins bypass mobile verification
+      if (role === "admin") {
+        return;
+      }
+
+      // If not verified, prompt for manual verification
+      if (!mobileNumber || !mobileVerified) {
+        toast.error("Mobile number not verified.");
+        navigate("/verify-mobile");
       }
     } catch (err) {
       console.error("❌ Error checking mobile verification", err);
-      toast.error("Mobile verification failed. Login again.");
+      toast.error("Mobile verification failed. Please log in again.");
       navigate("/login");
     }
   };
