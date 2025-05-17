@@ -162,7 +162,7 @@ export default function AdminDashboard() {
     <Layout title="Admin Dashboard">
       <Toaster />
 
-      {/* Top controls */}
+      {/* Top-bar controls */}
       <div className="flex justify-end gap-2 mb-6">
         <Button variant="secondary" onClick={switchToUser}>
           Back to User View
@@ -172,9 +172,15 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      {/* Replaced Sidebar with AdminNavBar */}
-      <AdminNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Tab navigation */}
+      <AdminNavBar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        fetchOrders={fetchOrders}
+        fetchUsers={fetchUsers}
+      />
 
+      {/* Content */}
       <div className="mt-6 p-6 bg-white rounded shadow overflow-auto min-h-[60vh]">
         {activeTab === "orders" && (
           <>
@@ -200,12 +206,14 @@ export default function AdminDashboard() {
               handleVerifyMobile={handleVerifyMobile}
               setEditUser={setEditUser}
             />
-            <EditUserModal
-              editUser={editUser}
-              setEditUser={setEditUser}
-              handleEditUser={updateProfile}
-              saving={saving}
-            />
+            {editUser && (
+              <EditUserModal
+                editUser={editUser}
+                setEditUser={setEditUser}
+                handleEditUser={updateProfile}
+                saving={saving}
+              />
+            )}
           </>
         )}
 
