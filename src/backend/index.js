@@ -55,5 +55,5 @@ app.get("*", (req, res) => {
 });
 
 // 🔈 Start server on configured PORT
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 80;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
