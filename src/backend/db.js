@@ -32,9 +32,15 @@ export const ensureUserRole = async (email) => {
     );
     if (rows.length === 0) {
       const role = email === "vinayak3788@gmail.com" ? "admin" : "user";
+      // protected and blocked columns are INT (0/1), not BOOLEAN
       await client.query(
         `INSERT INTO users(email, role, protected, blocked) VALUES ($1, $2, $3, $4)`,
-        [email, role, true, false],
+        [
+          email,
+          role,
+          role === "admin" ? 1 : 0, // protected flag as INT
+          0, // blocked = false → 0
+        ],
       );
       return role;
     }
