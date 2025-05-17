@@ -1,5 +1,4 @@
-//src/features/user/UserDashboard.jsx
-
+// src/features/user/UserDashboard.jsx
 import React, { useState, useEffect } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -27,10 +26,10 @@ export default function UserDashboard() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        // simply redirect, no toast on login page
+        toast.error("No user logged in.");
         navigate("/login");
       } else {
-        await validateMobile();
+        await validateMobile(user.email);
         setPending(false);
         fetchMyOrders(user.email);
       }
@@ -73,42 +72,36 @@ export default function UserDashboard() {
     <Layout title="MVPS Dashboard">
       <Toaster />
 
+      {/* Top controls */}
       <div className="flex flex-wrap justify-end gap-2 mb-6">
-        <Button onClick={handleViewCart}>View Cart</Button>
-        <Button
-          onClick={handleAdminAccess}
-          className="bg-purple-600 hover:bg-purple-700"
-        >
+        <Button variant="secondary" onClick={handleViewCart}>
+          View Cart
+        </Button>
+        <Button variant="primary" onClick={handleAdminAccess}>
           Switch to Admin
         </Button>
-        <Button onClick={handleLogout} className="bg-red-500 hover:bg-red-600">
+        <Button variant="danger" onClick={handleLogout}>
           Logout
         </Button>
       </div>
 
+      {/* Tab buttons */}
       <div className="flex justify-center gap-4 mb-6">
         <Button
+          variant={activeTab === "orders" ? "primary" : "secondary"}
           onClick={() => setActiveTab("orders")}
-          className={
-            activeTab === "orders"
-              ? "bg-blue-500 text-white"
-              : "bg-white text-blue-500 border"
-          }
         >
           📄 Print Orders
         </Button>
         <Button
+          variant={activeTab === "stationery" ? "primary" : "secondary"}
           onClick={() => setActiveTab("stationery")}
-          className={
-            activeTab === "stationery"
-              ? "bg-green-500 text-white"
-              : "bg-white text-green-500 border"
-          }
         >
           🛒 Stationery Orders
         </Button>
       </div>
 
+      {/* Content */}
       {activeTab === "orders" ? (
         <>
           <UploadOrderForm

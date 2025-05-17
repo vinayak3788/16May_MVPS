@@ -8,7 +8,7 @@ import { auth } from "../../config/firebaseConfig";
 import Layout from "../../components/Layout";
 import Button from "../../components/Button";
 
-import AdminNavBar from "./components/AdminNavBar";
+import Sidebar from "./components/Sidebar";
 import OrdersTable from "./components/OrdersTable";
 import UsersTable from "./components/UsersTable";
 import AdminStationeryForm from "./components/AdminStationeryForm";
@@ -18,14 +18,13 @@ import EditUserModal from "./components/EditUserModal";
 import { getAllOrders, updateOrderStatus } from "../../api/orderApi";
 import {
   getAllUsers,
-  updateUserRole as apiUpdateUserRole,
-  blockUser as apiBlockUser,
-  unblockUser as apiUnblockUser,
-  deleteUser as apiDeleteUser,
+  updateUserRole,
+  blockUser,
+  unblockUser,
+  deleteUser,
   updateProfile,
   verifyMobileManual,
 } from "../../api/userApi";
-import { getAllStationery } from "../../api/stationeryApi";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -33,150 +32,200 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
-  const [stationery, setStationery] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return navigate("/login");
       setPending(false);
+      await fetchOrders();
     });
     return () => unsub();
   }, [navigate]);
 
-  useEffect(() => {
-    if (pending) return;
-    if (activeTab === "orders") fetchOrders();
-    if (activeTab === "users") fetchUsers();
-    if (activeTab === "stationery") fetchStationery();
-  }, [activeTab, pending]);
-
-  const wrapAction = async (apiCall, successMsg, refetch) => {
+  const fetchOrders = async () => {
     setLoading(true);
     try {
-      const result = await apiCall();
-      if (successMsg) toast.success(successMsg);
-      refetch && refetch();
-      return result;
+      const { orders } = await getAllOrders();
+      setOrders(orders);
     } catch {
-      toast.error("Operation failed");
+      toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchOrders = () =>
-    wrapAction(async () => {
-      const { orders } = await getAllOrders();
-      setOrders(orders);
-    }, null);
-
-  const fetchUsers = () =>
-    wrapAction(async () => {
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
       const { users } = await getAllUsers();
       setUsers(users);
-    }, null);
+    } catch {
+      toast.error("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const fetchStationery = () =>
-    wrapAction(async () => {
-      const { products } = await getAllStationery();
-      setStationery(products);
-    }, null);
+  const handleStatusChange = async (id, status) => {
+    setLoading(true);
+    try {
+      await updateOrderStatus(id, status);
+      toast.success("Status updated");
+      await fetchOrders();
+    } catch {
+      toast.error("Update failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleStatusChange = (id, status) =>
-    wrapAction(
-      () => updateOrderStatus(id, status),
-      "Status updated",
-      fetchOrders,
-    );
+  const handleRoleChange = async (email, newRole) => {
+    setLoading(true);
+    try {
+      await updateUserRole(email, newRole);
+      toast.success("Role updated");
+      await fetchUsers();
+    } catch {
+      toast.error("Role update failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleRoleChange = (userId, newRole) =>
-    wrapAction(
-      () => apiUpdateUserRole(userId, newRole),
-      "Role updated",
-      fetchUsers,
-    );
+  const handleBlockUser = async (email) => {
+    setLoading(true);
+    try {
+      await blockUser(email);
+      toast.success("User blocked");
+      await fetchUsers();
+    } catch {
+      toast.error("Block failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleBlockUser = (userId) =>
-    wrapAction(() => apiBlockUser(userId), "User blocked", fetchUsers);
+  const handleUnblockUser = async (email) => {
+    setLoading(true);
+    try {
+      await unblockUser(email);
+      toast.success("User unblocked");
+      await fetchUsers();
+    } catch {
+      toast.error("Unblock failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleUnblockUser = (userId) =>
-    wrapAction(() => apiUnblockUser(userId), "User unblocked", fetchUsers);
+  const handleDeleteUser = async (email) => {
+    setLoading(true);
+    try {
+      await deleteUser(email);
+      toast.success("User deleted");
+      await fetchUsers();
+    } catch {
+      toast.error("Delete failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleDeleteUser = (userId) =>
-    wrapAction(() => apiDeleteUser(userId), "User deleted", fetchUsers);
-
-  const handleVerifyMobile = (userId) =>
-    wrapAction(() => verifyMobileManual(userId), "Mobile verified", fetchUsers);
+  const handleVerifyMobile = async (email) => {
+    setLoading(true);
+    try {
+      await verifyMobileManual(email);
+      toast.success("Mobile verified");
+      await fetchUsers();
+    } catch {
+      toast.error("Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
   };
 
-  const handleSwitchToUser = () => navigate("/userdashboard");
+  const handleSwitchToUser = () => {
+    navigate("/userdashboard");
+  };
 
-  if (pending) return <div className="text-center mt-10">Checking login…</div>;
+  if (pending) {
+    return <div className="text-center mt-10">Checking login…</div>;
+  }
 
   return (
     <Layout title="Admin Dashboard">
       <Toaster />
 
-      {/* Top actions */}
-      <div className="flex justify-end gap-2 mb-4">
-        <Button onClick={handleSwitchToUser}>Back to User View</Button>
-        <Button onClick={handleLogout} className="bg-red-500 hover:bg-red-600">
+      {/* Top-bar controls */}
+      <div className="flex justify-end gap-2 mb-6">
+        <Button variant="secondary" onClick={handleSwitchToUser}>
+          Back to User View
+        </Button>
+        <Button variant="danger" onClick={handleLogout}>
           Logout
         </Button>
       </div>
 
-      {/* Navigation tabs */}
-      <AdminNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="flex min-h-[70vh]">
+        {/* Sidebar */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          fetchOrders={fetchOrders}
+          fetchUsers={fetchUsers}
+        />
 
-      {/* Content */}
-      <div className="p-6 bg-white rounded shadow mt-4 overflow-auto min-h-[70vh]">
-        {activeTab === "orders" && (
-          <>
-            <h2 className="text-2xl font-bold mb-4">Manage Orders</h2>
-            <OrdersTable
-              orders={orders}
-              loading={loading}
-              handleStatusChange={handleStatusChange}
-            />
-          </>
-        )}
+        {/* Main content */}
+        <div className="flex-1 p-6 bg-white rounded shadow overflow-auto">
+          {activeTab === "orders" && (
+            <>
+              <h2 className="text-2xl font-bold mb-4">Manage Orders</h2>
+              <OrdersTable
+                orders={orders}
+                loading={loading}
+                handleStatusChange={handleStatusChange}
+              />
+            </>
+          )}
 
-        {activeTab === "users" && (
-          <>
-            <h2 className="text-2xl font-bold mb-4">Manage Users</h2>
-            <UsersTable
-              users={users}
-              loading={loading}
-              handleRoleChange={handleRoleChange}
-              handleBlockUser={handleBlockUser}
-              handleUnblockUser={handleUnblockUser}
-              handleDeleteUser={handleDeleteUser}
-              handleVerifyMobile={handleVerifyMobile}
-              setEditUser={setEditUser}
-            />
-            <EditUserModal
-              editUser={editUser}
-              setEditUser={setEditUser}
-              handleEditUser={updateProfile}
-              saving={saving}
-            />
-          </>
-        )}
+          {activeTab === "users" && (
+            <>
+              <h2 className="text-2xl font-bold mb-4">Manage Users</h2>
+              <UsersTable
+                users={users}
+                loading={loading}
+                handleRoleChange={handleRoleChange}
+                handleBlockUser={handleBlockUser}
+                handleUnblockUser={handleUnblockUser}
+                handleDeleteUser={handleDeleteUser}
+                handleVerifyMobile={handleVerifyMobile}
+                setEditUser={setEditUser}
+              />
+              <EditUserModal
+                editUser={editUser}
+                setEditUser={setEditUser}
+                handleEditUser={updateProfile}
+                saving={saving}
+              />
+            </>
+          )}
 
-        {activeTab === "stationery" && (
-          <>
-            <h2 className="text-2xl font-bold mb-4">Manage Stationery</h2>
-            <AdminStationeryForm />
-            <AdminStationeryTable products={stationery} loading={loading} />
-          </>
-        )}
+          {activeTab === "stationery" && (
+            <>
+              <h2 className="text-2xl font-bold mb-4">Manage Stationery</h2>
+              <AdminStationeryForm />
+              <AdminStationeryTable />
+            </>
+          )}
+        </div>
       </div>
     </Layout>
   );

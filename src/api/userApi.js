@@ -1,54 +1,46 @@
 // src/api/userApi.js
-
 import axios from "axios";
 
+// … your other imports …
+
+// Fetch all users
 export const getAllUsers = async () => {
-  const res = await axios.get("/api/get-users");
-  return res.data;
+  const response = await axios.get("/api/get-users");
+  return response.data;
 };
 
+// Change a user’s role
 export const updateUserRole = async (email, role) => {
-  const res = await axios.post("/api/update-role", { email, role });
-  return res.data;
+  const response = await axios.post("/api/update-role", { email, role });
+  return response.data;
 };
 
-export const deleteUser = async (email) => {
-  const res = await axios.post("/api/delete-user", { email });
-  return res.data;
-};
-
+// Block a user
 export const blockUser = async (email) => {
-  const res = await axios.post("/api/block-user", { email });
-  return res.data;
+  const response = await axios.post("/api/block-user", { email });
+  return response.data;
 };
 
-// ← Revised unblockUser to always resolve, even on 403
+// Unblock a user
 export const unblockUser = async (email) => {
-  try {
-    const res = await axios.post("/api/unblock-user", { email });
-    return res.data;
-  } catch (err) {
-    console.error("API unblockUser error:", err);
-    // Return whatever the server sent (or empty) so your front-end treats it as success
-    return err.response?.data || { message: "✅ User unblocked." };
-  }
+  const response = await axios.post("/api/unblock-user", { email });
+  return response.data;
 };
 
-export const updateProfile = async (
-  email,
-  { firstName, lastName, mobileNumber, mobileVerified },
-) => {
-  const res = await axios.post("/api/update-profile", {
-    email,
-    firstName,
-    lastName,
-    mobileNumber,
-    mobileVerified,
-  });
-  return res.data;
+// Delete a user
+export const deleteUser = async (email) => {
+  const response = await axios.post("/api/delete-user", { email });
+  return response.data;
 };
 
+// Manually toggle mobile verification
 export const verifyMobileManual = async (email) => {
-  const res = await axios.post("/api/verify-mobile-manual", { email });
-  return res.data;
+  const response = await axios.post("/api/verify-mobile-manual", { email });
+  return response.data;
+};
+
+// Fetch all users (alias)
+export const getAllUsers = async () => {
+  const { users } = await axios.get("/api/get-users");
+  return { users };
 };
