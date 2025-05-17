@@ -1,12 +1,12 @@
 // src/backend/routes/userRoutes.js
 import express from "express";
 import pool, {
-  updateUserRole,
+  ensureUserRole,
   getUserRole,
+  updateUserRole,
   blockUser,
   unblockUser,
   deleteUser,
-  ensureUserRole,
   isUserBlocked,
   upsertProfile,
   getProfile,
@@ -14,117 +14,110 @@ import pool, {
 
 const router = express.Router();
 
-console.log("🛠️  userRoutes.js loaded — unblock route is in play");
-
-// ——— Change user role (admin only) ———
+// ——— Change someone’s role (super-admin protected) ———
 router.post("/update-role", async (req, res) => {
   const { email, role } = req.body;
-  if (!email || !role)
+  if (!email || !role) {
     return res.status(400).json({ error: "Email and role are required." });
+  }
   try {
     if (email === "vinayak3788@gmail.com" && role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "❌ Cannot change super admin role." });
+      return res.status(403).json({ error: "Cannot change super admin role." });
     }
     await updateUserRole(email, role);
-    res.json({ message: `✅ Role updated to ${role}` });
+    res.json({ message: `Role updated to ${role}.` });
   } catch (err) {
     console.error("❌ Failed to update role:", err);
-    res.status(500).json({ error: "Could not update role." });
+    res.status(500).json({ error: "Internal error updating role." });
   }
 });
 
-// ——— Get user role ———
+// ——— Fetch (and auto-create) a user’s role ———
 router.get("/get-role", async (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: "Email required" });
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: "Email required." });
   try {
     await ensureUserRole(email);
-    if (await isUserBlocked(email))
-      return res.status(403).json({ error: "User is blocked" });
+    if (await isUserBlocked(email)) {
+      return res.status(403).json({ error: "User is blocked." });
+    }
     const role = await getUserRole(email);
     res.json({ role });
   } catch (err) {
     console.error("❌ Failed to get user role:", err);
-    res.status(500).json({ error: "Could not get user role." });
+    res.status(500).json({ error: "Internal error fetching role." });
   }
 });
 
 // ——— List all users ———
 router.get("/get-users", async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT
-         u.email,
-         u.role,
-         u.blocked,
-         p.mobilenumber   AS "mobileNumber",
-         p.firstname      AS "firstName",
-         p.lastname       AS "lastName",
-         p.mobileverified AS "mobileVerified"
-       FROM users u
-       LEFT JOIN profiles p ON u.email = p.email
-       ORDER BY u.email`,
-    );
+    const { rows } = await pool.query(`
+      SELECT 
+        u.email, 
+        u.role, 
+        u.blocked, 
+        p."mobileNumber", 
+        p."firstName", 
+        p."lastName", 
+        p."mobileVerified"
+      FROM users u
+      LEFT JOIN profiles p ON u.email = p.email
+      ORDER BY u.email
+    `);
     res.json({ users: rows });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
-    res.status(500).json({ error: "Failed to fetch users." });
+    res.status(500).json({ error: "Internal error fetching users." });
   }
 });
 
 // ——— Block user ———
 router.post("/block-user", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email required" });
+  if (!email) return res.status(400).json({ error: "Email required." });
   try {
     await blockUser(email);
-    res.json({ message: "✅ User blocked successfully." });
+    res.json({ message: "User blocked successfully." });
   } catch (err) {
-    console.error("❌ Failed to block user:", err);
-    res.status(500).json({ error: "Failed to block user." });
+    console.error("❌ Error blocking user:", err);
+    if (err.message.includes("protected")) {
+      return res.status(403).json({ error: err.message });
+    }
+    res.status(500).json({ error: "Internal error blocking user." });
   }
 });
 
 // ——— Unblock user ———
 router.post("/unblock-user", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email required" });
+  if (!email) return res.status(400).json({ error: "Email required." });
   try {
-    const { rows } = await pool.query(
-      `SELECT email FROM users WHERE email = $1`,
-      [email],
-    );
-    if (rows.length === 0)
-      return res.json({
-        message: "✅ User was not blocked (no record found).",
-      });
     await unblockUser(email);
-    res.json({ message: "✅ User unblocked successfully." });
+    res.json({ message: "User unblocked successfully." });
   } catch (err) {
-    console.error("❌ Error inside unblock-user:", err);
-    res.status(500).json({ error: "Failed to unblock user." });
+    console.error("❌ Error unblocking user:", err);
+    res.status(500).json({ error: "Internal error unblocking user." });
   }
 });
 
 // ——— Delete user ———
 router.post("/delete-user", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email required" });
+  if (!email) return res.status(400).json({ error: "Email required." });
   try {
     await deleteUser(email);
-    res.json({ message: "✅ User deleted successfully." });
+    res.json({ message: "User deleted successfully." });
   } catch (err) {
-    console.error("❌ Failed to delete user:", err);
-    res.status(500).json({ error: "Failed to delete user." });
+    console.error("❌ Error deleting user:", err);
+    res.status(500).json({ error: "Internal error deleting user." });
   }
 });
 
-// ——— Update profile ———
+// ——— Update user profile ———
 router.post("/update-profile", async (req, res) => {
-  const { email, mobileNumber, firstName, lastName, mobileVerified } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  const { email, firstName, lastName, mobileNumber, mobileVerified } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required." });
   try {
     await upsertProfile({
       email,
@@ -133,50 +126,55 @@ router.post("/update-profile", async (req, res) => {
       mobileNumber,
       mobileVerified: mobileVerified ? 1 : 0,
     });
-    res.json({ message: "✅ Profile updated successfully!" });
+    res.json({ message: "Profile updated successfully." });
   } catch (err) {
-    console.error("❌ Failed to update profile:", err);
-    res.status(500).json({ error: "Failed to update profile." });
+    console.error("❌ Error updating profile:", err);
+    res.status(500).json({ error: "Internal error updating profile." });
   }
 });
 
-// ——— Fetch profile ———
+// ——— Fetch profile details ———
 router.get("/get-profile", async (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: "Email is required." });
   try {
     const profile = await getProfile(email);
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found." });
+    }
     res.json(profile);
   } catch (err) {
-    console.error("❌ Failed to fetch profile:", err);
-    res.status(500).json({ error: "Failed to fetch profile." });
+    console.error("❌ Error fetching profile:", err);
+    res.status(500).json({ error: "Internal error fetching profile." });
   }
 });
 
-// ——— Mobile verify toggle ———
+// ——— Manual toggle mobile verified ———
 router.post("/verify-mobile-manual", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  if (!email) return res.status(400).json({ error: "Email is required." });
   try {
     const profile = await getProfile(email);
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found." });
+    }
     await upsertProfile({
       ...profile,
       mobileVerified: profile.mobileVerified ? 0 : 1,
     });
-    res.json({ message: "✅ Mobile verification status updated!" });
+    res.json({ message: "Mobile verification status updated." });
   } catch (err) {
-    console.error("❌ Failed to toggle mobile verification:", err);
-    res.status(500).json({ error: "Failed to toggle mobile verification." });
+    console.error("❌ Error toggling mobile verification:", err);
+    res.status(500).json({ error: "Internal error toggling verification." });
   }
 });
 
-// ——— Create profile ———
+// ——— Create new user profile on signup ———
 router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  if (!email) return res.status(400).json({ error: "Email is required." });
   try {
+    // ensure user record exists
     await ensureUserRole(email);
     await upsertProfile({
       email,
@@ -187,8 +185,8 @@ router.post("/create-user-profile", async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ Failed to create user profile:", err);
-    res.status(500).json({ error: "Failed to create profile." });
+    console.error("❌ Error creating user profile:", err);
+    res.status(500).json({ error: "Internal error creating profile." });
   }
 });
 
