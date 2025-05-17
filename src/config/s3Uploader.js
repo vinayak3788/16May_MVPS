@@ -14,7 +14,7 @@ const s3 = new AWS.S3({
 });
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
-const BUCKET_FOLDER = process.env.AWS_BUCKET_FOLDER || "uploads";
+const BUCKET_FOLDER = process.env.AWS_BUCKET_FOLDER || "";
 
 export async function uploadFileToS3(buffer, originalFileName, orderNumber) {
   if (!BUCKET_NAME) {
@@ -23,7 +23,9 @@ export async function uploadFileToS3(buffer, originalFileName, orderNumber) {
   const ext = originalFileName.split(".").pop();
   const base = originalFileName.replace(/\.[^/.]+$/, "");
   const cleanFileName = `${orderNumber}_${base}.${ext}`;
-  const Key = `${BUCKET_FOLDER}/${cleanFileName}`;
+  const Key = BUCKET_FOLDER
+    ? `${BUCKET_FOLDER}/${cleanFileName}`
+    : cleanFileName;
 
   await s3
     .upload({
