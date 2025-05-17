@@ -1,4 +1,5 @@
-// src/features/user/UserDashboard.jsx
+//src/features/user/UserDashboard.jsx
+
 import React, { useState, useEffect } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +30,7 @@ export default function UserDashboard() {
         toast.error("No user logged in.");
         navigate("/login");
       } else {
-        await validateMobile(user.email);
+        await validateMobile();
         setPending(false);
         fetchMyOrders(user.email);
       }
