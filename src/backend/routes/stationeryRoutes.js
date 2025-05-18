@@ -66,18 +66,23 @@ router.post(
   },
 );
 
-// Admin: Update product core fields & images
+// Admin: Update product (including SKU & quantity)
 router.put(
   "/admin/stationery/update/:id",
   upload.array("images", 5),
   async (req, res) => {
     const { id } = req.params;
-    const { name, description, price, discount, existing } = req.body;
-    if (!name || !price) {
-      return res.status(400).json({ error: "Name and Price are required" });
+    const { name, description, price, discount, existing, sku, quantity } =
+      req.body;
+    if (!name || !price || !sku) {
+      return res
+        .status(400)
+        .json({ error: "Name, Price, and SKU are required" });
     }
     try {
       await ensureTable();
+
+      // Merge kept URLs with any newly uploaded ones
       const keep = Array.isArray(existing)
         ? existing
         : existing
@@ -88,19 +93,30 @@ router.put(
         const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
         urls.push(s3Url);
       }
+
+      // Persist all fields
       await pool.query(
         `UPDATE stationery_products
-           SET name=$1, description=$2, price=$3, discount=$4, images=$5
-         WHERE id=$6`,
+           SET name        = $1,
+               description = $2,
+               price       = $3,
+               discount    = $4,
+               images      = $5,
+               sku         = $6,
+               quantity    = $7
+         WHERE id = $8`,
         [
           name,
           description || "",
           parseFloat(price),
           parseFloat(discount) || 0,
           JSON.stringify(urls),
+          sku,
+          parseInt(quantity, 10) || 0,
           id,
         ],
       );
+
       res.json({ message: "Product updated successfully" });
     } catch (err) {
       console.error("❌ Error updating product:", err);
@@ -122,17 +138,15 @@ router.delete("/admin/stationery/delete/:id", async (req, res) => {
   }
 });
 
-// Admin: Update SKU
+// Admin: Update SKU (alternate, if you still use this)
 router.put("/admin/stationery/product/:id/sku", async (req, res) => {
   const { id } = req.params;
   const { sku } = req.body;
   try {
-    await pool.query(
-      `UPDATE stationery_products
-         SET sku = $1
-       WHERE id = $2`,
-      [sku, id],
-    );
+    await pool.query(`UPDATE stationery_products SET sku = $1 WHERE id = $2`, [
+      sku,
+      id,
+    ]);
     res.json({ message: "SKU updated successfully" });
   } catch (err) {
     console.error("❌ Error updating SKU:", err);
@@ -140,15 +154,13 @@ router.put("/admin/stationery/product/:id/sku", async (req, res) => {
   }
 });
 
-// Admin: Update Quantity
+// Admin: Update Quantity (alternate, if you still use this)
 router.put("/admin/stationery/product/:id/quantity", async (req, res) => {
   const { id } = req.params;
   const { quantity } = req.body;
   try {
     await pool.query(
-      `UPDATE stationery_products
-         SET quantity = $1
-       WHERE id = $2`,
+      `UPDATE stationery_products SET quantity = $1 WHERE id = $2`,
       [quantity, id],
     );
     res.json({ message: "Quantity updated successfully" });
