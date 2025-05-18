@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import EditStationeryModal from "./EditStationeryModal";
+import { Avatar, Tooltip, TextField, Box, Button } from "@mui/material";
 
 export default function AdminStationeryTable() {
   const [products, setProducts] = useState([]);
@@ -13,7 +14,6 @@ export default function AdminStationeryTable() {
     setLoading(true);
     try {
       const res = await axios.get("/api/stationery/products");
-      // Use the products array from response
       setProducts(Array.isArray(res.data.products) ? res.data.products : []);
     } catch (err) {
       console.error("❌ Failed to load products:", err);
@@ -22,6 +22,10 @@ export default function AdminStationeryTable() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this product?")) return;
@@ -35,9 +39,27 @@ export default function AdminStationeryTable() {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  const handleSkuChange = async (id, newSku) => {
+    try {
+      await axios.put(`/api/admin/product/${id}/sku`, { sku: newSku });
+      fetchProducts();
+      toast.success("SKU updated");
+    } catch {
+      toast.error("SKU update failed");
+    }
+  };
+
+  const handleQtyChange = async (id, newQty) => {
+    try {
+      await axios.put(`/api/admin/product/${id}/quantity`, {
+        quantity: parseInt(newQty, 10),
+      });
+      fetchProducts();
+      toast.success("Quantity updated");
+    } catch {
+      toast.error("Quantity update failed");
+    }
+  };
 
   return (
     <div className="mt-10">
@@ -52,14 +74,17 @@ export default function AdminStationeryTable() {
                 <th className="px-4 py-2 border">#</th>
                 <th className="px-4 py-2 border">Image</th>
                 <th className="px-4 py-2 border">Name</th>
+                <th className="px-4 py-2 border">SKU</th>
                 <th className="px-4 py-2 border">Price</th>
-                <th className="px-4 py-2 border">Discount</th>
+                <th className="px-4 py-2 border">Quantity</th>
+                <th className="px-4 py-2 border">Variants</th>
                 <th className="px-4 py-2 border">Actions</th>
               </tr>
             </thead>
             <tbody>
               {products.map((p, i) => {
                 const imgs = Array.isArray(p.images) ? p.images : [];
+                const variants = Array.isArray(p.variants) ? p.variants : [];
                 return (
                   <tr key={p.id} className="text-center">
                     <td className="px-4 py-2 border">{i + 1}</td>
@@ -75,8 +100,40 @@ export default function AdminStationeryTable() {
                       )}
                     </td>
                     <td className="px-4 py-2 border">{p.name}</td>
+                    <td className="px-4 py-2 border">
+                      <TextField
+                        size="small"
+                        value={p.sku || ""}
+                        onChange={(e) => handleSkuChange(p.id, e.target.value)}
+                      />
+                    </td>
                     <td className="px-4 py-2 border">₹{p.price.toFixed(2)}</td>
-                    <td className="px-4 py-2 border">{p.discount}%</td>
+                    <td className="px-4 py-2 border">
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={p.quantity}
+                        onChange={(e) => handleQtyChange(p.id, e.target.value)}
+                        inputProps={{ min: 0 }}
+                      />
+                    </td>
+                    <td className="px-4 py-2 border">
+                      <Box sx={{ display: "flex", justifyContent: "center" }}>
+                        {variants.map((v) => (
+                          <Tooltip key={v.sku} title={v.color}>
+                            <Avatar
+                              src={v.imageUrl}
+                              sx={{
+                                width: 24,
+                                height: 24,
+                                mx: 0.5,
+                                cursor: "pointer",
+                              }}
+                            />
+                          </Tooltip>
+                        ))}
+                      </Box>
+                    </td>
                     <td className="px-4 py-2 border space-x-2">
                       <button
                         onClick={() => setEditProduct(p)}

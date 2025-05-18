@@ -1,13 +1,15 @@
 // src/features/admin/components/AdminStationeryForm.jsx
-
 import React, { useState } from "react";
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const AdminStationeryForm = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [discount, setDiscount] = useState("");
+  const [sku, setSku] = useState("");
+  const [quantity, setQuantity] = useState(0);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -20,8 +22,8 @@ const AdminStationeryForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!name || !price) {
-      setMessage("❌ Name and Price are mandatory.");
+    if (!name || !price || !sku) {
+      setMessage("❌ Name, Price, and SKU are mandatory.");
       return;
     }
 
@@ -30,6 +32,8 @@ const AdminStationeryForm = () => {
     formData.append("description", description);
     formData.append("price", price);
     formData.append("discount", discount);
+    formData.append("sku", sku);
+    formData.append("quantity", quantity);
 
     images.forEach((image) => {
       formData.append("images", image);
@@ -50,6 +54,8 @@ const AdminStationeryForm = () => {
       setDescription("");
       setPrice("");
       setDiscount("");
+      setSku("");
+      setQuantity(0);
       setImages([]);
     } catch (error) {
       console.error(error);
@@ -84,6 +90,14 @@ const AdminStationeryForm = () => {
         ></textarea>
 
         <input
+          type="text"
+          placeholder="SKU *"
+          className="w-full p-2 border rounded"
+          value={sku}
+          onChange={(e) => setSku(e.target.value)}
+        />
+
+        <input
           type="number"
           placeholder="Price (₹) *"
           className="w-full p-2 border rounded"
@@ -97,6 +111,15 @@ const AdminStationeryForm = () => {
           className="w-full p-2 border rounded"
           value={discount}
           onChange={(e) => setDiscount(e.target.value)}
+        />
+
+        <input
+          type="number"
+          placeholder="Quantity *"
+          className="w-full p-2 border rounded"
+          value={quantity}
+          onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
+          min={0}
         />
 
         <input
