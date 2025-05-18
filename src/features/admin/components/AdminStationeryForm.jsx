@@ -115,14 +115,16 @@ const AdminStationeryForm = () => {
           placeholder="Discount (%)"
           className="w-full p-2 border rounded"
           value={discount}
-          onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+          onChange={(e) => setDiscount(e.target.value)}
         />
+        {/* Quantity */}
         <input
           type="number"
-          placeholder="Quantity"
+          placeholder="Quantity *"
           className="w-full p-2 border rounded"
           value={quantity}
           onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
+          min={0}
         />
 
         {/* Variants section */}
