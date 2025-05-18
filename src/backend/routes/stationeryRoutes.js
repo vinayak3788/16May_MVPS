@@ -7,7 +7,7 @@ import { uploadImageToS3 } from "../../config/s3StationeryUploader.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Ensure stationery_products table exists
+// Ensure stationery_products table exists (with new columns)
 const ensureTable = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS stationery_products (
@@ -17,6 +17,9 @@ const ensureTable = async () => {
       price REAL NOT NULL,
       discount REAL DEFAULT 0,
       images JSONB DEFAULT '[]',
+      quantity INTEGER NOT NULL DEFAULT 0,
+      sku TEXT,
+      variants JSONB DEFAULT '[]',
       createdat TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -27,9 +30,11 @@ router.post(
   "/admin/stationery/add",
   upload.array("images", 5),
   async (req, res) => {
-    const { name, description, price, discount } = req.body;
-    if (!name || !price) {
-      return res.status(400).json({ error: "Name and Price are required" });
+    const { name, description, price, discount, sku, quantity } = req.body;
+    if (!name || !price || !sku) {
+      return res
+        .status(400)
+        .json({ error: "Name, Price, and SKU are required" });
     }
     try {
       await ensureTable();
@@ -39,14 +44,18 @@ router.post(
         uploadedUrls.push(s3Url);
       }
       await pool.query(
-        `INSERT INTO stationery_products (name, description, price, discount, images)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO stationery_products
+           (name, description, price, discount, images, quantity, sku, variants)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           name,
           description || "",
           parseFloat(price),
           parseFloat(discount) || 0,
           JSON.stringify(uploadedUrls),
+          parseInt(quantity, 10) || 0,
+          sku,
+          JSON.stringify([]),
         ],
       );
       res.json({ message: "Product added successfully" });
@@ -57,7 +66,7 @@ router.post(
   },
 );
 
-// Admin: Update product
+// Admin: Update product core fields & images
 router.put(
   "/admin/stationery/update/:id",
   upload.array("images", 5),
@@ -113,6 +122,42 @@ router.delete("/admin/stationery/delete/:id", async (req, res) => {
   }
 });
 
+// Admin: Update SKU
+router.put("/admin/stationery/product/:id/sku", async (req, res) => {
+  const { id } = req.params;
+  const { sku } = req.body;
+  try {
+    await pool.query(
+      `UPDATE stationery_products
+         SET sku = $1
+       WHERE id = $2`,
+      [sku, id],
+    );
+    res.json({ message: "SKU updated successfully" });
+  } catch (err) {
+    console.error("❌ Error updating SKU:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Admin: Update Quantity
+router.put("/admin/stationery/product/:id/quantity", async (req, res) => {
+  const { id } = req.params;
+  const { quantity } = req.body;
+  try {
+    await pool.query(
+      `UPDATE stationery_products
+         SET quantity = $1
+       WHERE id = $2`,
+      [quantity, id],
+    );
+    res.json({ message: "Quantity updated successfully" });
+  } catch (err) {
+    console.error("❌ Error updating quantity:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // User: Get all products
 router.get("/stationery/products", async (req, res) => {
   try {
@@ -125,6 +170,9 @@ router.get("/stationery/products", async (req, res) => {
          price,
          discount,
          images,
+         quantity,
+         sku,
+         variants,
          createdat AS "createdAt"
        FROM stationery_products
        ORDER BY createdat DESC`,
