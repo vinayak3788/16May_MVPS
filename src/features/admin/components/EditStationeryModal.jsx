@@ -4,15 +4,15 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
-const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
+const EditStationeryModal = ({ product, onClose, onUpdate }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [discount, setDiscount] = useState("");
   const [sku, setSku] = useState("");
   const [quantity, setQuantity] = useState(0);
-  const [existingImages, setExistingImages] = useState([]); // old URLs
-  const [newImages, setNewImages] = useState([]); // fresh uploads
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,24 +47,17 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
     formData.append("sku", sku);
     formData.append("quantity", quantity);
     formData.append("existing", JSON.stringify(existingImages));
-
-    newImages.forEach((img) => {
-      formData.append("images", img);
-    });
+    newImages.forEach((img) => formData.append("images", img));
 
     try {
       setLoading(true);
       const res = await axios.put(
         `/api/admin/stationery/update/${product.id}`,
         formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        },
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
       toast.success(res.data.message || "Product updated");
-      setProductToEdit(null);
+      onClose();
       onUpdate();
     } catch (err) {
       console.error(err);
@@ -166,7 +159,7 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
             <button
               type="button"
               className="px-4 py-2 border rounded"
-              onClick={() => setProductToEdit(null)}
+              onClick={onClose}
             >
               Cancel
             </button>
