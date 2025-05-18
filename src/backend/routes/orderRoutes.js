@@ -1,7 +1,6 @@
 // src/backend/routes/orderRoutes.js
 import express from "express";
 import multer from "multer";
-import pool from "../db.js"; // for direct queries
 import {
   createOrder,
   updateOrderFiles,
@@ -25,6 +24,7 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       totalCost,
       createdAt,
       pageCounts,
+      items,
     } = req.body;
 
     if (!user || !totalCost || !createdAt || !printType) {
@@ -34,7 +34,14 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       return res.status(400).json({ error: "No files uploaded." });
     }
 
-    const parsedPages = JSON.parse(pageCounts || "[]");
+    // Parse pages array (either string or actual array)
+    let pagesArray;
+    if (Array.isArray(pageCounts)) {
+      pagesArray = pageCounts.map((p) => Number(p) || 0);
+    } else {
+      pagesArray = JSON.parse(pageCounts || "[]");
+    }
+
     const { id: orderId } = await createOrder({
       userEmail: user,
       fileNames: "",
@@ -50,38 +57,26 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
     const uploaded = [];
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
+      const pages = pagesArray[i] || 0;
       const { cleanFileName } = await uploadFileToS3(
         file.buffer,
         file.originalname,
         orderNumber,
       );
-      const pages = Number(parsedPages[i]) || 0;
       uploaded.push({ name: cleanFileName, pages });
     }
 
-    // Handle stationery items if any (from frontend)
-    if (req.body.items) {
-      const stationeryList = JSON.parse(req.body.items);
-      // Decrement stock for each stationery item
-      for (const item of stationeryList) {
-        await pool.query(
-          `UPDATE stationery_products
-             SET quantity = GREATEST(quantity - $1, 0)
-           WHERE id = $2`,
-          [item.quantity, item.id],
-        );
+    // Handle stationery items if present
+    if (items) {
+      let stationeryList;
+      if (typeof items === "string") {
+        stationeryList = JSON.parse(items || "[]");
+      } else {
+        stationeryList = items;
       }
       stationeryList.forEach((i) =>
         uploaded.push({ name: `${i.name} × ${i.quantity || 1}`, pages: 0 }),
       );
-      // Persist items JSON in orders table
-      await pool.query(
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB`,
-      );
-      await pool.query(`UPDATE orders SET items = $1 WHERE id = $2`, [
-        req.body.items,
-        orderId,
-      ]);
     }
 
     await updateOrderFiles(orderId, {
@@ -104,18 +99,9 @@ router.post("/submit-stationery-order", async (req, res) => {
       return res.status(400).json({ error: "Missing stationery order data." });
     }
 
-    // Decrement stock and prepare display names
-    const itemDisplays = [];
-    for (const i of items) {
-      await pool.query(
-        `UPDATE stationery_products
-           SET quantity = GREATEST(quantity - $1, 0)
-         WHERE id = $2`,
-        [i.quantity, i.id],
-      );
-      itemDisplays.push(`${i.name} × ${i.quantity || 1}`);
-    }
-    const fileNames = itemDisplays.join(", ");
+    const fileNames = items
+      .map((i) => `${i.name} × ${i.quantity || 1}`)
+      .join(", ");
     const totalPages = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
 
     const { id: orderId } = await createOrder({
@@ -129,14 +115,6 @@ router.post("/submit-stationery-order", async (req, res) => {
       createdAt,
     });
     const orderNumber = `ORD${orderId.toString().padStart(4, "0")}`;
-
-    // Persist items JSON
-    await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB`);
-    await pool.query(`UPDATE orders SET items = $1 WHERE id = $2`, [
-      JSON.stringify(items),
-      orderId,
-    ]);
-
     res.json({ orderNumber, totalCost });
   } catch (err) {
     console.error("❌ Failed to store stationery order:", err);
@@ -162,19 +140,29 @@ router.post("/confirm-payment", async (req, res) => {
       <p><strong>Total:</strong> ₹${order.totalcost.toFixed(2)}</p>`;
     if (order.printtype !== "stationery") {
       html += `
-        <p><strong>Print Type:</strong> ${order.printtype === "color" ? "Color" : "Black & White"}</p>
-        <p><strong>Print Side:</strong> ${order.sideoption === "double" ? "Back to Back" : "Single Sided"}</p>
-        <p><strong>Spiral Binding:</strong> ${order.spiralbinding ? "Yes" : "No"}</p>`;
+        <p><strong>Print Type:</strong> ${
+          order.printtype === "color" ? "Color" : "Black & White"
+        }</p>
+        <p><strong>Print Side:</strong> ${
+          order.sideoption === "double" ? "Back to Back" : "Single Sided"
+        }</p>
+        <p><strong>Spiral Binding:</strong> ${
+          order.spiralbinding ? "Yes" : "No"
+        }</p>`;
     }
 
-    const parts = order.filenames.split(", ").filter(Boolean);
+    const parts = (order.filenames || "").split(", ").filter(Boolean);
     const pdfs = parts.filter((p) => !p.includes("×"));
     const stationery = parts.filter((p) => p.includes("×"));
     if (pdfs.length) {
-      html += `<p><strong>Files:</strong></p><ul>${pdfs.map((n) => `<li>${n}</li>`).join("")}</ul>`;
+      html += `<p><strong>Files:</strong></p><ul>${pdfs
+        .map((n) => `<li>${n}</li>`)
+        .join("")}</ul>`;
     }
     if (stationery.length) {
-      html += `<p><strong>Stationery Items:</strong></p><ul>${stationery.map((n) => `<li>${n}</li>`).join("")}</ul>`;
+      html += `<p><strong>Stationery Items:</strong></p><ul>${stationery
+        .map((n) => `<li>${n}</li>`)
+        .join("")}</ul>`;
     }
 
     await sendOrderConfirmation(
@@ -212,23 +200,34 @@ router.get("/get-orders", async (req, res) => {
       orders = orders.filter((o) => o.useremail === userEmail);
     }
 
-    const normalized = orders.map((o) => ({
-      id: o.id,
-      orderNumber: o.ordernumber,
-      userEmail: o.useremail,
-      items: o.items ? JSON.parse(o.items) : [],
-      fileNames: o.filenames,
-      printType: o.printtype,
-      sideOption: o.sideoption,
-      spiralBinding: o.spiralbinding,
-      totalPages: o.totalpages,
-      totalCost: o.totalcost,
-      status: o.status,
-      createdAt: o.createdat,
-      attachedFiles: o.filenames
-        ? o.filenames.split(", ").map((n) => ({ name: n }))
-        : [],
-    }));
+    const normalized = orders.map((o) => {
+      const parts = (o.filenames || "").split(", ").filter(Boolean);
+      const pdfs = parts.filter((n) => !n.includes("×"));
+      const stationery = parts.filter((n) => n.includes("×"));
+
+      return {
+        id: o.id,
+        orderNumber: o.ordernumber,
+        userEmail: o.useremail,
+        printType: o.printtype,
+        sideOption: o.sideoption,
+        spiralBinding: o.spiralbinding,
+        totalPages:
+          o.printtype === "stationery"
+            ? stationery.reduce(
+                (sum, i) => sum + Number(i.split("×")[1] || 1),
+                0,
+              )
+            : o.totalpages,
+        totalCost: o.totalcost,
+        status: o.status,
+        createdAt: o.createdat,
+        attachedFiles: [
+          ...pdfs.map((n) => ({ name: n })),
+          ...stationery.map((n) => ({ name: n })),
+        ],
+      };
+    });
 
     res.json({ orders: normalized });
   } catch (err) {
