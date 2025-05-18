@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import EditStationeryModal from "./EditStationeryModal";
-import { Avatar, Tooltip, TextField, Box, Button } from "@mui/material";
 
 export default function AdminStationeryTable() {
   const [products, setProducts] = useState([]);
@@ -50,10 +49,10 @@ export default function AdminStationeryTable() {
   };
 
   const handleQtyChange = async (id, newQty) => {
+    const qty = parseInt(newQty, 10);
+    if (isNaN(qty) || qty < 0) return;
     try {
-      await axios.put(`/api/admin/product/${id}/quantity`, {
-        quantity: parseInt(newQty, 10),
-      });
+      await axios.put(`/api/admin/product/${id}/quantity`, { quantity: qty });
       fetchProducts();
       toast.success("Quantity updated");
     } catch {
@@ -101,38 +100,34 @@ export default function AdminStationeryTable() {
                     </td>
                     <td className="px-4 py-2 border">{p.name}</td>
                     <td className="px-4 py-2 border">
-                      <TextField
-                        size="small"
+                      <input
+                        type="text"
+                        className="w-full p-1 border rounded text-sm"
                         value={p.sku || ""}
                         onChange={(e) => handleSkuChange(p.id, e.target.value)}
                       />
                     </td>
                     <td className="px-4 py-2 border">₹{p.price.toFixed(2)}</td>
                     <td className="px-4 py-2 border">
-                      <TextField
+                      <input
                         type="number"
-                        size="small"
+                        min="0"
+                        className="w-full p-1 border rounded text-sm"
                         value={p.quantity}
                         onChange={(e) => handleQtyChange(p.id, e.target.value)}
-                        inputProps={{ min: 0 }}
                       />
                     </td>
                     <td className="px-4 py-2 border">
-                      <Box sx={{ display: "flex", justifyContent: "center" }}>
+                      <div className="flex justify-center space-x-2">
                         {variants.map((v) => (
-                          <Tooltip key={v.sku} title={v.color}>
-                            <Avatar
-                              src={v.imageUrl}
-                              sx={{
-                                width: 24,
-                                height: 24,
-                                mx: 0.5,
-                                cursor: "pointer",
-                              }}
-                            />
-                          </Tooltip>
+                          <img
+                            key={v.sku}
+                            src={v.imageUrl}
+                            title={v.color}
+                            className="w-6 h-6 rounded-full border border-gray-300 hover:border-blue-500 cursor-pointer"
+                          />
                         ))}
-                      </Box>
+                      </div>
                     </td>
                     <td className="px-4 py-2 border space-x-2">
                       <button

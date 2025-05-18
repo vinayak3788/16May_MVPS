@@ -23,7 +23,7 @@ const AdminStationeryForm = () => {
     e.preventDefault();
 
     if (!name || !price || !sku) {
-      setMessage("❌ Name, Price, and SKU are mandatory.");
+      toast.error("Name, Price & SKU are mandatory.");
       return;
     }
 
@@ -35,21 +35,14 @@ const AdminStationeryForm = () => {
     formData.append("sku", sku);
     formData.append("quantity", quantity);
 
-    images.forEach((image) => {
-      formData.append("images", image);
-    });
+    images.forEach((image) => formData.append("images", image));
 
     try {
       setLoading(true);
-      setMessage("");
-
       const response = await axios.post("/api/admin/stationery/add", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      setMessage(response.data.message || "✅ Product uploaded successfully!");
+      toast.success(response.data.message || "Product uploaded successfully!");
       setName("");
       setDescription("");
       setPrice("");
@@ -59,7 +52,7 @@ const AdminStationeryForm = () => {
       setImages([]);
     } catch (error) {
       console.error(error);
-      setMessage("❌ Failed to upload product. Please try again.");
+      toast.error("Failed to upload product. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -68,11 +61,6 @@ const AdminStationeryForm = () => {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">➕ Add Stationery Product</h2>
-
-      {message && (
-        <div className="mb-4 text-center font-semibold">{message}</div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="text"
@@ -81,14 +69,12 @@ const AdminStationeryForm = () => {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-
         <textarea
           placeholder="Short Description"
           className="w-full p-2 border rounded"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         ></textarea>
-
         <input
           type="text"
           placeholder="SKU *"
@@ -96,7 +82,6 @@ const AdminStationeryForm = () => {
           value={sku}
           onChange={(e) => setSku(e.target.value)}
         />
-
         <input
           type="number"
           placeholder="Price (₹) *"
@@ -104,7 +89,6 @@ const AdminStationeryForm = () => {
           value={price}
           onChange={(e) => setPrice(e.target.value)}
         />
-
         <input
           type="number"
           placeholder="Discount (%)"
@@ -112,7 +96,6 @@ const AdminStationeryForm = () => {
           value={discount}
           onChange={(e) => setDiscount(e.target.value)}
         />
-
         <input
           type="number"
           placeholder="Quantity *"
@@ -121,7 +104,6 @@ const AdminStationeryForm = () => {
           onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
           min={0}
         />
-
         <input
           type="file"
           multiple
@@ -129,7 +111,6 @@ const AdminStationeryForm = () => {
           className="w-full p-2 border rounded"
           onChange={handleImageChange}
         />
-
         <button
           type="submit"
           className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
