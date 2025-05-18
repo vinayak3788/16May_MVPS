@@ -9,43 +9,44 @@ import pool, {
   deleteUser as dbDeleteUser,
   isUserBlocked,
   upsertProfile,
-  getProfile,
+  getProfile, // not used here, but kept for imports
 } from "../db.js";
-import admin from "../firebaseAdmin.js"; // for delete-user only
+import admin from "../firebaseAdmin.js"; // for delete-user
 
 const router = express.Router();
 
-// ——— Fetch (and auto-create) a user’s role, with block & mobile checks ———
+// ——— Fetch (and auto-create) a user’s role, with admin bypass ———
 router.get("/get-role", async (req, res) => {
   const email = req.query.email;
-  if (!email) {
-    return res.status(400).json({ error: "Email required." });
-  }
+  if (!email) return res.status(400).json({ error: "Email required." });
 
   try {
-    // Ensure a row exists
     await ensureUserRole(email);
-
-    // Fetch the current role
     const role = await getUserRole(email);
 
-    // Admins (and super-admin) bypass block & mobile-verified checks
+    // Admins skip block + mobile checks entirely
     if (role === "admin" || role === "super-admin") {
       return res.json({ role });
     }
 
-    // For everyone else, block if flagged
     if (await isUserBlocked(email)) {
       return res.status(403).json({ error: "User is blocked." });
     }
 
-    // Enforce mobile verification
-    const profile = await getProfile(email);
-    if (!profile || !profile.mobileVerified) {
+    // Enforce mobile verified for non-admins
+    const profileRow = (
+      await pool.query(
+        `SELECT mobileverified
+           FROM profiles
+          WHERE email = $1`,
+        [email],
+      )
+    ).rows[0];
+
+    if (!profileRow || !profileRow.mobileverified) {
       return res.status(403).json({ error: "Mobile not verified." });
     }
 
-    // Finally, return the role
     res.json({ role });
   } catch (err) {
     console.error("❌ Failed to get user role:", err);
@@ -61,10 +62,10 @@ router.get("/get-users", async (req, res) => {
         u.email, 
         u.role, 
         u.blocked, 
-        p."mobileNumber", 
-        p."firstName", 
-        p."lastName", 
-        p."mobileVerified"
+        p.mobilenumber   AS "mobileNumber",
+        p.firstname      AS "firstName",
+        p.lastname       AS "lastName",
+        p.mobileverified AS "mobileVerified"
       FROM users u
       LEFT JOIN profiles p ON u.email = p.email
       ORDER BY u.email
@@ -79,9 +80,9 @@ router.get("/get-users", async (req, res) => {
 // ——— Change someone’s role ———
 router.post("/update-role", async (req, res) => {
   const { email, role } = req.body;
-  if (!email || !role) {
+  if (!email || !role)
     return res.status(400).json({ error: "Email and role required." });
-  }
+
   try {
     if (email === "vinayak3788@gmail.com" && role !== "admin") {
       return res.status(403).json({ error: "Cannot change super admin role." });
@@ -97,9 +98,8 @@ router.post("/update-role", async (req, res) => {
 // ——— Block user ———
 router.post("/block-user", async (req, res) => {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email required." });
-  }
+  if (!email) return res.status(400).json({ error: "Email required." });
+
   try {
     await dbBlockUser(email);
     res.json({ message: "User blocked successfully." });
@@ -115,9 +115,8 @@ router.post("/block-user", async (req, res) => {
 // ——— Unblock user ———
 router.post("/unblock-user", async (req, res) => {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email required." });
-  }
+  if (!email) return res.status(400).json({ error: "Email required." });
+
   try {
     await dbUnblockUser(email);
     res.json({ message: "User unblocked successfully." });
@@ -130,18 +129,17 @@ router.post("/unblock-user", async (req, res) => {
 // ——— Delete user ———
 router.post("/delete-user", async (req, res) => {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email required." });
-  }
+  if (!email) return res.status(400).json({ error: "Email required." });
+
   try {
-    // Attempt to delete from Firebase Auth
+    // Try Firebase deletion
     try {
       const userRec = await admin.auth().getUserByEmail(email);
       await admin.auth().deleteUser(userRec.uid);
     } catch (firebaseErr) {
       console.warn("⚠️ Firebase delete-user warning:", firebaseErr.message);
     }
-    // Delete from Postgres
+    // Delete from our DB
     await dbDeleteUser(email);
     res.json({ message: "User deleted successfully." });
   } catch (err) {
@@ -153,14 +151,12 @@ router.post("/delete-user", async (req, res) => {
 // ——— Toggle mobile verified ———
 router.post("/verify-mobile-manual", async (req, res) => {
   const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email required." });
-  }
+  if (!email) return res.status(400).json({ error: "Email required." });
+
   try {
     const profile = await getProfile(email);
-    if (!profile) {
-      return res.status(404).json({ error: "Profile not found." });
-    }
+    if (!profile) return res.status(404).json({ error: "Profile not found." });
+
     const newStatus = profile.mobileVerified ? 0 : 1;
     await upsertProfile({ ...profile, mobileVerified: newStatus });
     res.json({ message: "Mobile verification status updated." });
@@ -173,9 +169,8 @@ router.post("/verify-mobile-manual", async (req, res) => {
 // ——— Create new user profile on signup ———
 router.post("/create-user-profile", async (req, res) => {
   const { email, firstName, lastName, mobileNumber } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email required." });
-  }
+  if (!email) return res.status(400).json({ error: "Email required." });
+
   try {
     await ensureUserRole(email);
     await upsertProfile({
