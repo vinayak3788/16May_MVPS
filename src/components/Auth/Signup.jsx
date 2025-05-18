@@ -1,6 +1,5 @@
-// src/components/Auth/Signup.jsx
 import React, { useState } from "react";
-import { auth, googleProvider } from \"../../config/firebaseConfig.js\";
+import { auth, googleProvider } from "../../config/firebaseConfig.js";
 import {
   createUserWithEmailAndPassword,
   signInWithPopup,
@@ -31,8 +30,9 @@ export default function Signup() {
         toast.error(
           methods.includes("google.com")
             ? "That email is already registered via Google. Please sign in with Google."
-            : "That email is already in use. Try signing in instead.",
+            : "That email is already in use. Try signing in instead."
         );
+        setLoading(false);
         return;
       }
       await createUserWithEmailAndPassword(auth, email, password);
@@ -89,7 +89,6 @@ export default function Signup() {
   return (
     <Layout title="Sign Up for MVP Services">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* First/Last Name, Mobile, Email, Password inputs */}
         <div>
           <label className="block mb-1 font-medium">First Name</label>
           <input
@@ -142,7 +141,6 @@ export default function Signup() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
-
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Signing up…" : "Sign Up"}
         </Button>
@@ -150,7 +148,6 @@ export default function Signup() {
 
       <div className="text-center font-semibold my-6">OR</div>
 
-      {/* Corrected the handler name here */}
       <Button
         onClick={handleGoogleSignup}
         disabled={loading}
@@ -170,5 +167,4 @@ export default function Signup() {
         </button>
       </p>
     </Layout>
-  );
-}
+);
