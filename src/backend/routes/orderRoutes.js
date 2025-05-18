@@ -24,7 +24,7 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       totalCost,
       createdAt,
       pageCounts,
-      items,
+      items, // may be string or array
     } = req.body;
 
     if (!user || !totalCost || !createdAt || !printType) {
@@ -34,14 +34,19 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       return res.status(400).json({ error: "No files uploaded." });
     }
 
-    // Parse pages array (either string or actual array)
-    let pagesArray;
+    // Parse pages array (string or actual array)
+    let pagesArray = [];
     if (Array.isArray(pageCounts)) {
       pagesArray = pageCounts.map((p) => Number(p) || 0);
     } else {
-      pagesArray = JSON.parse(pageCounts || "[]");
+      try {
+        pagesArray = JSON.parse(pageCounts || "[]");
+      } catch {
+        pagesArray = [];
+      }
     }
 
+    // Create the order record
     const { id: orderId } = await createOrder({
       userEmail: user,
       fileNames: "",
@@ -54,6 +59,7 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
     });
     const orderNumber = `ORD${orderId.toString().padStart(4, "0")}`;
 
+    // Upload each file
     const uploaded = [];
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
@@ -68,17 +74,22 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
 
     // Handle stationery items if present
     if (items) {
-      let stationeryList;
-      if (typeof items === "string") {
-        stationeryList = JSON.parse(items || "[]");
-      } else {
+      let stationeryList = [];
+      if (Array.isArray(items)) {
         stationeryList = items;
+      } else {
+        try {
+          stationeryList = JSON.parse(items);
+        } catch {
+          stationeryList = [];
+        }
       }
       stationeryList.forEach((i) =>
         uploaded.push({ name: `${i.name} × ${i.quantity || 1}`, pages: 0 }),
       );
     }
 
+    // Update the order with filenames and total pages
     await updateOrderFiles(orderId, {
       fileNames: uploaded.map((f) => f.name).join(", "),
       totalPages: uploaded.reduce((sum, f) => sum + f.pages, 0),
