@@ -1,6 +1,6 @@
 // src/components/Auth/Signup.jsx
 import React, { useState } from "react";
-import { auth, googleProvider } from "../../config/firebaseConfig";
+import { auth, googleProvider } from \"../../config/firebaseConfig.js\";
 import {
   createUserWithEmailAndPassword,
   signInWithPopup,

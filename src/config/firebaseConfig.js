@@ -1,31 +1,27 @@
-// src/backend/firebaseAdmin.js
+// src/config/firebaseConfig.js
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
-import admin from "firebase-admin";
-
-// Use service account credentials from environment variables
-// Make sure these are set in your process.env (e.g., via PM2 --update-env or a .env file):
-// FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
-
-const serviceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  // Replace escaped newlines in the private key
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-if (
-  !serviceAccount.projectId ||
-  !serviceAccount.clientEmail ||
-  !serviceAccount.privateKey
-) {
-  throw new Error(
-    "Firebase Admin SDK requires FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY",
-  );
-}
+// Initialize Firebase App
+const app = initializeApp(firebaseConfig);
 
-// Initialize the Firebase Admin SDK
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+// Auth and provider
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope("profile");
+googleProvider.addScope("email");
 
-export default admin;
+// Default export for convenience
+export default {
+  auth,
+  googleProvider,
+};
