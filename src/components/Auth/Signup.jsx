@@ -30,7 +30,7 @@ export default function Signup() {
         toast.error(
           methods.includes("google.com")
             ? "That email is already registered via Google. Please sign in with Google."
-            : "That email is already in use. Try signing in instead."
+            : "That email is already in use. Try signing in instead.",
         );
         setLoading(false);
         return;
@@ -167,4 +167,5 @@ export default function Signup() {
         </button>
       </p>
     </Layout>
-);
+  );
+}
