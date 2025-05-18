@@ -7,7 +7,7 @@ export default function OrdersTable({ orders, loading, handleStatusChange }) {
     return <div className="text-center p-4">Loading orders...</div>;
   }
 
-  if (orders.length === 0) {
+  if (!Array.isArray(orders) || orders.length === 0) {
     return <div className="text-center">No orders found.</div>;
   }
 
@@ -18,7 +18,6 @@ export default function OrdersTable({ orders, loading, handleStatusChange }) {
           <tr>
             <th className="px-3 py-2 border">Order No</th>
             <th className="px-3 py-2 border">User Email</th>
-            <th className="px-3 py-2 border">Items</th>
             <th className="px-3 py-2 border">Files</th>
             <th className="px-3 py-2 border">Pages</th>
             <th className="px-3 py-2 border">Options</th>
@@ -39,20 +38,17 @@ export default function OrdersTable({ orders, loading, handleStatusChange }) {
               <td className="px-3 py-1 border text-center">
                 {order.userEmail}
               </td>
-              <td className="px-3 py-1 border text-left">
-                {order.items.map((it, i) => (
-                  <div key={i}>
-                    {it.name} × {it.quantity || 1} <br />
-                    {it.variantSku && <span>SKU: {it.variantSku}</span>}
-                    {it.variantColor && <>, Color: {it.variantColor}</>}
-                  </div>
-                ))}
-              </td>
               <td className="px-3 py-1 border text-center">
-                <FileLinks files={order.attachedFiles} />
+                <FileLinks
+                  files={
+                    Array.isArray(order.attachedFiles)
+                      ? order.attachedFiles
+                      : []
+                  }
+                />
               </td>
               <td className="px-3 py-1 border text-center font-mono">
-                {order.totalPages || "-"}
+                {order.totalPages ?? "-"}
               </td>
               <td className="px-3 py-1 border text-center">
                 {order.printType?.toUpperCase()} |{" "}
