@@ -9,6 +9,7 @@ export default function StationeryStore() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariants, setSelectedVariants] = useState({});
+  const [modalProductId, setModalProductId] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -19,13 +20,13 @@ export default function StationeryStore() {
       const res = await axios.get("/api/stationery/products");
       const items = Array.isArray(res.data.products) ? res.data.products : [];
       setProducts(items);
-      // Initialize default selected variant per product
+      // initialize default variant per product
       const defaults = {};
       items.forEach((p) => {
         defaults[p.id] =
           Array.isArray(p.variants) && p.variants.length > 0
             ? p.variants[0]
-            : null;
+            : { color: null, sku: p.sku, imageUrl: p.images[0] };
       });
       setSelectedVariants(defaults);
     } catch (error) {
@@ -78,6 +79,11 @@ export default function StationeryStore() {
     );
   }
 
+  // Find the product currently in modal (null if none)
+  const modalProduct = modalProductId
+    ? products.find((p) => p.id === modalProductId)
+    : null;
+
   return (
     <div className="p-6">
       <h1 className="text-3xl font-bold text-center mb-8">
@@ -94,7 +100,7 @@ export default function StationeryStore() {
               key={product.id}
               className="border rounded-lg overflow-hidden shadow hover:shadow-lg transition-all flex flex-col bg-white"
             >
-              {/* Variant swatches */}
+              {/* Color swatches */}
               {product.variants && product.variants.length > 0 && (
                 <div className="flex justify-center p-2 space-x-2">
                   {product.variants.map((v) => (
@@ -114,8 +120,11 @@ export default function StationeryStore() {
                 </div>
               )}
 
-              {/* Main Image */}
-              <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+              {/* Main Image (click to open variant modal) */}
+              <div
+                className="w-full h-48 bg-gray-100 flex items-center justify-center cursor-pointer"
+                onClick={() => setModalProductId(product.id)}
+              >
                 {variant.imageUrl ? (
                   <img
                     src={variant.imageUrl}
@@ -142,7 +151,13 @@ export default function StationeryStore() {
                 {product.discount > 0 ? (
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="text-green-600 font-bold">
-                      ₹{finalPrice}
+                      ₹
+                      {product.discount > 0
+                        ? parseFloat(
+                            product.price -
+                              (product.price * product.discount) / 100,
+                          ).toFixed(2)
+                        : product.price.toFixed(2)}
                     </span>
                     <span className="line-through text-gray-500">
                       ₹{product.price.toFixed(2)}
@@ -175,6 +190,35 @@ export default function StationeryStore() {
           );
         })}
       </div>
+
+      {/* Variant selection modal */}
+      {modalProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded shadow-lg max-w-sm w-full">
+            <h2 className="text-lg font-semibold mb-2">Choose a color</h2>
+            <div className="flex space-x-2">
+              {modalProduct.variants.map((v) => (
+                <img
+                  key={v.sku}
+                  src={v.imageUrl}
+                  title={v.color}
+                  className="w-12 h-12 object-cover rounded-full cursor-pointer border-2 border-gray-300 hover:border-blue-600"
+                  onClick={() => {
+                    handleVariantSelect(modalProduct.id, v);
+                    setModalProductId(null);
+                  }}
+                />
+              ))}
+            </div>
+            <button
+              className="mt-4 text-sm text-gray-600"
+              onClick={() => setModalProductId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

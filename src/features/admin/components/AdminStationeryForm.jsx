@@ -1,6 +1,4 @@
-// ----------------------------------------------
 // src/features/admin/components/AdminStationeryForm.jsx
-// ----------------------------------------------
 import React, { useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -9,14 +7,15 @@ const AdminStationeryForm = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [discount, setDiscount] = useState(0);
-  const [quantity, setQuantity] = useState(0);
+  const [discount, setDiscount] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [sku, setSku] = useState("");
 
   // Variants: array of { color, sku, imageFile }
   const [variants, setVariants] = useState([
     { color: "", sku: "", imageFile: null },
   ]);
+
   const [loading, setLoading] = useState(false);
 
   const addVariantRow = () => {
@@ -35,44 +34,52 @@ const AdminStationeryForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Basic validation
     if (!name || !price || !sku) {
       toast.error("Name, Price & SKU are required.");
       return;
     }
     setLoading(true);
+
     try {
+      // Parse numeric fields
+      const finalDiscount = parseFloat(discount) || 0;
+      const finalQuantity = parseInt(quantity, 10) || 0;
+
       const formData = new FormData();
       formData.append("name", name);
       formData.append("description", description);
       formData.append("price", price);
-      formData.append("discount", discount);
-      formData.append("quantity", quantity);
+      formData.append("discount", finalDiscount);
+      formData.append("quantity", finalQuantity);
       formData.append("sku", sku);
-      // Send variants metadata
+
+      // Append variants metadata and files
       formData.append(
         "variants",
         JSON.stringify(variants.map((v) => ({ color: v.color, sku: v.sku }))),
       );
-      // Append each variant image file in same order
-      variants.forEach((v, idx) => {
+
+      variants.forEach((v) => {
         if (v.imageFile) formData.append("variantImages", v.imageFile);
       });
 
       const res = await axios.post("/api/admin/stationery/add", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
       toast.success(res.data.message || "Product uploaded successfully!");
-      // reset form
+      // Reset form
       setName("");
       setDescription("");
       setPrice("");
-      setDiscount(0);
-      setQuantity(0);
+      setDiscount("");
+      setQuantity("");
       setSku("");
       setVariants([{ color: "", sku: "", imageFile: null }]);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to upload product.");
+      toast.error("Failed to upload product. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -90,12 +97,14 @@ const AdminStationeryForm = () => {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+
         <textarea
           placeholder="Short Description"
           className="w-full p-2 border rounded"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+
         <input
           type="text"
           placeholder="SKU *"
@@ -103,6 +112,7 @@ const AdminStationeryForm = () => {
           value={sku}
           onChange={(e) => setSku(e.target.value)}
         />
+
         <input
           type="number"
           placeholder="Price (₹) *"
@@ -110,6 +120,7 @@ const AdminStationeryForm = () => {
           value={price}
           onChange={(e) => setPrice(e.target.value)}
         />
+
         <input
           type="number"
           placeholder="Discount (%)"
@@ -117,13 +128,13 @@ const AdminStationeryForm = () => {
           value={discount}
           onChange={(e) => setDiscount(e.target.value)}
         />
-        {/* Quantity */}
+
         <input
           type="number"
           placeholder="Quantity *"
           className="w-full p-2 border rounded"
           value={quantity}
-          onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
+          onChange={(e) => setQuantity(e.target.value)}
           min={0}
         />
 
@@ -173,7 +184,7 @@ const AdminStationeryForm = () => {
 
         <button
           type="submit"
-          className="bg-blue-600 text-white px-6 py-2 rounded"
+          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
           disabled={loading}
         >
           {loading ? "Uploading..." : "Upload Product"}
