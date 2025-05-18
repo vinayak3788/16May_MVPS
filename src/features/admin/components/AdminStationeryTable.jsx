@@ -40,7 +40,9 @@ export default function AdminStationeryTable() {
 
   const handleSkuChange = async (id, newSku) => {
     try {
-      await axios.put(`/api/admin/product/${id}/sku`, { sku: newSku });
+      await axios.put(`/api/admin/stationery/product/${id}/sku`, {
+        sku: newSku,
+      });
       fetchProducts();
       toast.success("SKU updated");
     } catch {
@@ -52,7 +54,9 @@ export default function AdminStationeryTable() {
     const qty = parseInt(newQty, 10);
     if (isNaN(qty) || qty < 0) return;
     try {
-      await axios.put(`/api/admin/product/${id}/quantity`, { quantity: qty });
+      await axios.put(`/api/admin/stationery/product/${id}/quantity`, {
+        quantity: qty,
+      });
       fetchProducts();
       toast.success("Quantity updated");
     } catch {
