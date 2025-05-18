@@ -9,6 +9,8 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [discount, setDiscount] = useState("");
+  const [sku, setSku] = useState("");
+  const [quantity, setQuantity] = useState(0);
   const [existingImages, setExistingImages] = useState([]); // old URLs
   const [newImages, setNewImages] = useState([]); // fresh uploads
   const [loading, setLoading] = useState(false);
@@ -19,11 +21,9 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
       setDescription(product.description || "");
       setPrice(product.price || "");
       setDiscount(product.discount || "");
-      setExistingImages(
-        product.images
-          ? product.images.split(",").map((url) => url.trim())
-          : [],
-      );
+      setSku(product.sku || "");
+      setQuantity(product.quantity || 0);
+      setExistingImages(Array.isArray(product.images) ? product.images : []);
       setNewImages([]);
     }
   }, [product]);
@@ -34,8 +34,8 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !price) {
-      toast.error("Name and price are required");
+    if (!name || !price || !sku) {
+      toast.error("Name, price, and SKU are required");
       return;
     }
 
@@ -44,6 +44,8 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
     formData.append("description", description);
     formData.append("price", price);
     formData.append("discount", discount);
+    formData.append("sku", sku);
+    formData.append("quantity", quantity);
     formData.append("existing", JSON.stringify(existingImages));
 
     newImages.forEach((img) => {
@@ -91,7 +93,14 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description"
-          ></textarea>
+          />
+          <input
+            type="text"
+            className="w-full border p-2 rounded"
+            value={sku}
+            onChange={(e) => setSku(e.target.value)}
+            placeholder="SKU"
+          />
           <input
             type="number"
             className="w-full border p-2 rounded"
@@ -104,7 +113,15 @@ const EditStationeryModal = ({ product, setProductToEdit, onUpdate }) => {
             className="w-full border p-2 rounded"
             value={discount}
             onChange={(e) => setDiscount(e.target.value)}
-            placeholder="Discount"
+            placeholder="Discount (%)"
+          />
+          <input
+            type="number"
+            className="w-full border p-2 rounded"
+            value={quantity}
+            onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
+            placeholder="Quantity"
+            min="0"
           />
 
           {/* Existing Image Previews */}
