@@ -7,7 +7,7 @@ import { uploadImageToS3 } from "../../config/s3StationeryUploader.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Ensure stationery_products table exists (with new columns)
+// Ensure the table exists with our new columns
 const ensureTable = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS stationery_products (
@@ -25,76 +25,97 @@ const ensureTable = async () => {
   `);
 };
 
-// Admin: Add new product
+/**
+ * Admin: Add new product (with variants)
+ * Expects:
+ *  - name, description, price, discount, sku, quantity
+ *  - variants: JSON string of [{ color, sku }, ...]
+ *  - variantImages[]: files in same order as variants array
+ */
 router.post(
   "/admin/stationery/add",
-  upload.array("images", 5),
+  upload.array("variantImages", 10),
   async (req, res) => {
-    const { name, description, price, discount, sku, quantity } = req.body;
+    const { name, description, price, discount, sku, quantity, variants } =
+      req.body;
     if (!name || !price || !sku) {
-      return res
-        .status(400)
-        .json({ error: "Name, Price, and SKU are required" });
+      return res.status(400).json({ error: "Name, Price & SKU are required" });
     }
     try {
       await ensureTable();
-      const uploadedUrls = [];
-      for (const file of req.files || []) {
+
+      // Parse variant metadata and upload each file
+      const meta = JSON.parse(variants || "[]");
+      const files = req.files || [];
+      const variantObjs = [];
+
+      for (let i = 0; i < meta.length; i++) {
+        const { color, sku: vsku } = meta[i];
+        const file = files[i];
+        if (!file) {
+          throw new Error(`Missing image file for variant #${i}`);
+        }
         const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
-        uploadedUrls.push(s3Url);
+        variantObjs.push({ color, sku: vsku, imageUrl: s3Url });
       }
+
+      // Use all variant image URLs as main images fallback
+      const images = variantObjs.map((v) => v.imageUrl);
+
+      // Insert row
       await pool.query(
         `INSERT INTO stationery_products
-           (name, description, price, discount, images, quantity, sku, variants)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          (name, description, price, discount, images, quantity, sku, variants)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           name,
           description || "",
           parseFloat(price),
           parseFloat(discount) || 0,
-          JSON.stringify(uploadedUrls),
+          JSON.stringify(images),
           parseInt(quantity, 10) || 0,
           sku,
-          JSON.stringify([]),
+          JSON.stringify(variantObjs),
         ],
       );
-      res.json({ message: "Product added successfully" });
+
+      return res.json({ message: "Product added successfully" });
     } catch (err) {
       console.error("❌ Error adding product:", err);
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   },
 );
 
-// Admin: Update product (including SKU & quantity)
+/**
+ * Admin: Update existing product (fields, images, sku, quantity)
+ * Expects:
+ *  - name, description, price, discount, sku, quantity
+ *  - existing: JSON string of image URLs to keep
+ *  - images[]: any new image files to append
+ */
 router.put(
   "/admin/stationery/update/:id",
-  upload.array("images", 5),
+  upload.array("images", 10),
   async (req, res) => {
     const { id } = req.params;
     const { name, description, price, discount, existing, sku, quantity } =
       req.body;
     if (!name || !price || !sku) {
-      return res
-        .status(400)
-        .json({ error: "Name, Price, and SKU are required" });
+      return res.status(400).json({ error: "Name, Price & SKU are required" });
     }
     try {
       await ensureTable();
 
-      // Merge kept URLs with any newly uploaded ones
-      const keep = Array.isArray(existing)
-        ? existing
-        : existing
-          ? JSON.parse(existing)
-          : [];
-      const urls = [...keep];
+      // Build new images array: kept URLs + newly uploaded ones
+      const keep = existing ? JSON.parse(existing) : [];
+      const urls = Array.isArray(keep) ? [...keep] : [];
       for (const file of req.files || []) {
         const { s3Url } = await uploadImageToS3(file.buffer, file.originalname);
         urls.push(s3Url);
       }
 
-      // Persist all fields
+      // Update row
       await pool.query(
         `UPDATE stationery_products
            SET name        = $1,
@@ -117,28 +138,32 @@ router.put(
         ],
       );
 
-      res.json({ message: "Product updated successfully" });
+      return res.json({ message: "Product updated successfully" });
     } catch (err) {
       console.error("❌ Error updating product:", err);
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   },
 );
 
-// Admin: Delete product
+/**
+ * Admin: Delete product
+ */
 router.delete("/admin/stationery/delete/:id", async (req, res) => {
   const { id } = req.params;
   try {
     await ensureTable();
     await pool.query(`DELETE FROM stationery_products WHERE id = $1`, [id]);
-    res.json({ message: "Product deleted successfully" });
+    return res.json({ message: "Product deleted successfully" });
   } catch (err) {
     console.error("❌ Error deleting product:", err);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Admin: Update SKU (alternate, if you still use this)
+/**
+ * Admin: Update only SKU
+ */
 router.put("/admin/stationery/product/:id/sku", async (req, res) => {
   const { id } = req.params;
   const { sku } = req.body;
@@ -147,52 +172,49 @@ router.put("/admin/stationery/product/:id/sku", async (req, res) => {
       sku,
       id,
     ]);
-    res.json({ message: "SKU updated successfully" });
+    return res.json({ message: "SKU updated successfully" });
   } catch (err) {
     console.error("❌ Error updating SKU:", err);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Admin: Update Quantity (alternate, if you still use this)
+/**
+ * Admin: Update only quantity
+ */
 router.put("/admin/stationery/product/:id/quantity", async (req, res) => {
   const { id } = req.params;
   const { quantity } = req.body;
   try {
     await pool.query(
       `UPDATE stationery_products SET quantity = $1 WHERE id = $2`,
-      [quantity, id],
+      [parseInt(quantity, 10), id],
     );
-    res.json({ message: "Quantity updated successfully" });
+    return res.json({ message: "Quantity updated successfully" });
   } catch (err) {
     console.error("❌ Error updating quantity:", err);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// User: Get all products
+/**
+ * Public: Fetch all products
+ */
 router.get("/stationery/products", async (req, res) => {
   try {
     await ensureTable();
     const { rows } = await pool.query(
       `SELECT
-         id,
-         name,
-         description,
-         price,
-         discount,
-         images,
-         quantity,
-         sku,
-         variants,
+         id, name, description, price, discount,
+         images, quantity, sku, variants,
          createdat AS "createdAt"
        FROM stationery_products
        ORDER BY createdat DESC`,
     );
-    res.json({ products: rows });
+    return res.json({ products: rows });
   } catch (err) {
     console.error("❌ Error fetching products:", err);
-    res.status(500).json({ error: "Failed to fetch products." });
+    return res.status(500).json({ error: "Failed to fetch products." });
   }
 });
 

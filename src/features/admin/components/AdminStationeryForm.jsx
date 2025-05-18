@@ -1,4 +1,6 @@
+// ----------------------------------------------
 // src/features/admin/components/AdminStationeryForm.jsx
+// ----------------------------------------------
 import React, { useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -7,52 +9,70 @@ const AdminStationeryForm = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [discount, setDiscount] = useState("");
-  const [sku, setSku] = useState("");
+  const [discount, setDiscount] = useState(0);
   const [quantity, setQuantity] = useState(0);
-  const [images, setImages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [sku, setSku] = useState("");
 
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
-    setImages(files);
+  // Variants: array of { color, sku, imageFile }
+  const [variants, setVariants] = useState([
+    { color: "", sku: "", imageFile: null },
+  ]);
+  const [loading, setLoading] = useState(false);
+
+  const addVariantRow = () => {
+    setVariants((prev) => [...prev, { color: "", sku: "", imageFile: null }]);
+  };
+
+  const updateVariant = (index, field, value) => {
+    const copy = [...variants];
+    copy[index][field] = value;
+    setVariants(copy);
+  };
+
+  const removeVariantRow = (index) => {
+    setVariants((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!name || !price || !sku) {
-      toast.error("Name, Price & SKU are mandatory.");
+      toast.error("Name, Price & SKU are required.");
       return;
     }
-
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("description", description);
-    formData.append("price", price);
-    formData.append("discount", discount);
-    formData.append("sku", sku);
-    formData.append("quantity", quantity);
-
-    images.forEach((image) => formData.append("images", image));
-
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await axios.post("/api/admin/stationery/add", formData, {
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("description", description);
+      formData.append("price", price);
+      formData.append("discount", discount);
+      formData.append("quantity", quantity);
+      formData.append("sku", sku);
+      // Send variants metadata
+      formData.append(
+        "variants",
+        JSON.stringify(variants.map((v) => ({ color: v.color, sku: v.sku }))),
+      );
+      // Append each variant image file in same order
+      variants.forEach((v, idx) => {
+        if (v.imageFile) formData.append("variantImages", v.imageFile);
+      });
+
+      const res = await axios.post("/api/admin/stationery/add", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      toast.success(response.data.message || "Product uploaded successfully!");
+      toast.success(res.data.message || "Product uploaded successfully!");
+      // reset form
       setName("");
       setDescription("");
       setPrice("");
-      setDiscount("");
-      setSku("");
+      setDiscount(0);
       setQuantity(0);
-      setImages([]);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to upload product. Please try again.");
+      setSku("");
+      setVariants([{ color: "", sku: "", imageFile: null }]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload product.");
     } finally {
       setLoading(false);
     }
@@ -62,6 +82,7 @@ const AdminStationeryForm = () => {
     <div className="p-6 max-w-3xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">➕ Add Stationery Product</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Basic fields */}
         <input
           type="text"
           placeholder="Product Name *"
@@ -74,7 +95,7 @@ const AdminStationeryForm = () => {
           className="w-full p-2 border rounded"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-        ></textarea>
+        />
         <input
           type="text"
           placeholder="SKU *"
@@ -94,26 +115,63 @@ const AdminStationeryForm = () => {
           placeholder="Discount (%)"
           className="w-full p-2 border rounded"
           value={discount}
-          onChange={(e) => setDiscount(e.target.value)}
+          onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
         />
         <input
           type="number"
-          placeholder="Quantity *"
+          placeholder="Quantity"
           className="w-full p-2 border rounded"
           value={quantity}
-          onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
-          min={0}
+          onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
         />
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          className="w-full p-2 border rounded"
-          onChange={handleImageChange}
-        />
+
+        {/* Variants section */}
+        <div>
+          <h3 className="font-semibold mb-2">Variants</h3>
+          {variants.map((v, i) => (
+            <div key={i} className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                placeholder="Color"
+                className="border p-1 rounded flex-1"
+                value={v.color}
+                onChange={(e) => updateVariant(i, "color", e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Variant SKU"
+                className="border p-1 rounded flex-1"
+                value={v.sku}
+                onChange={(e) => updateVariant(i, "sku", e.target.value)}
+              />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) =>
+                  updateVariant(i, "imageFile", e.target.files[0])
+                }
+              />
+              <button
+                type="button"
+                onClick={() => removeVariantRow(i)}
+                className="text-red-600"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addVariantRow}
+            className="text-blue-600"
+          >
+            + Add Variant
+          </button>
+        </div>
+
         <button
           type="submit"
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white px-6 py-2 rounded"
           disabled={loading}
         >
           {loading ? "Uploading..." : "Upload Product"}
