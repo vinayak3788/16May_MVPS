@@ -9,7 +9,7 @@ import pool, {
   deleteUser as dbDeleteUser,
   isUserBlocked,
   upsertProfile,
-  getProfile, // not used here, but kept for imports
+  getProfile,
 } from "../db.js";
 import admin from "../firebaseAdmin.js"; // for delete-user
 
@@ -35,12 +35,9 @@ router.get("/get-role", async (req, res) => {
 
     // Enforce mobile verified for non-admins
     const profileRow = (
-      await pool.query(
-        `SELECT mobileverified
-           FROM profiles
-          WHERE email = $1`,
-        [email],
-      )
+      await pool.query(`SELECT mobileverified FROM profiles WHERE email = $1`, [
+        email,
+      ])
     ).rows[0];
 
     if (!profileRow || !profileRow.mobileverified) {
@@ -54,22 +51,49 @@ router.get("/get-role", async (req, res) => {
   }
 });
 
+// ——— Fetch user profile ———
+router.get("/get-profile", async (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: "Email required." });
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         email,
+         firstname   AS "firstName",
+         lastname    AS "lastName",
+         mobilenumber AS "mobileNumber",
+         mobileverified AS "mobileVerified"
+       FROM profiles
+       WHERE email = $1`,
+      [email],
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: "Profile not found." });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Error fetching profile:", err);
+    res.status(500).json({ error: "Internal error fetching profile." });
+  }
+});
+
 // ——— List all users ———
 router.get("/get-users", async (req, res) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT 
-        u.email, 
-        u.role, 
-        u.blocked, 
-        p.mobilenumber   AS "mobileNumber",
-        p.firstname      AS "firstName",
-        p.lastname       AS "lastName",
-        p.mobileverified AS "mobileVerified"
-      FROM users u
-      LEFT JOIN profiles p ON u.email = p.email
-      ORDER BY u.email
-    `);
+    const { rows } = await pool.query(
+      `SELECT 
+         u.email, 
+         u.role, 
+         u.blocked, 
+         p.mobilenumber   AS "mobileNumber",
+         p.firstname      AS "firstName",
+         p.lastname       AS "lastName",
+         p.mobileverified AS "mobileVerified"
+       FROM users u
+       LEFT JOIN profiles p ON u.email = p.email
+       ORDER BY u.email`,
+    );
     res.json({ users: rows });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
@@ -132,14 +156,13 @@ router.post("/delete-user", async (req, res) => {
   if (!email) return res.status(400).json({ error: "Email required." });
 
   try {
-    // Try Firebase deletion
+    // Firebase Auth deletion
     try {
       const userRec = await admin.auth().getUserByEmail(email);
       await admin.auth().deleteUser(userRec.uid);
     } catch (firebaseErr) {
       console.warn("⚠️ Firebase delete-user warning:", firebaseErr.message);
     }
-    // Delete from our DB
     await dbDeleteUser(email);
     res.json({ message: "User deleted successfully." });
   } catch (err) {
