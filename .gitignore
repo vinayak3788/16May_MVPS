@@ -4,3 +4,5 @@ node_modules/
 dist/
 # Local env files
 #.env
+src/config/serviceAccountKey.json
+src/config/serviceAccountKey.json
