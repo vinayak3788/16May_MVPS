@@ -1,6 +1,7 @@
 // src/backend/routes/orderRoutes.js
 import express from "express";
 import multer from "multer";
+import pool from "../db.js"; // for direct queries
 import {
   createOrder,
   updateOrderFiles,
@@ -58,11 +59,29 @@ router.post("/submit-order", upload.array("files"), async (req, res) => {
       uploaded.push({ name: cleanFileName, pages });
     }
 
+    // Handle stationery items if any (from frontend)
     if (req.body.items) {
       const stationeryList = JSON.parse(req.body.items);
+      // Decrement stock for each stationery item
+      for (const item of stationeryList) {
+        await pool.query(
+          `UPDATE stationery_products
+             SET quantity = GREATEST(quantity - $1, 0)
+           WHERE id = $2`,
+          [item.quantity, item.id],
+        );
+      }
       stationeryList.forEach((i) =>
         uploaded.push({ name: `${i.name} × ${i.quantity || 1}`, pages: 0 }),
       );
+      // Persist items JSON in orders table
+      await pool.query(
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB`,
+      );
+      await pool.query(`UPDATE orders SET items = $1 WHERE id = $2`, [
+        req.body.items,
+        orderId,
+      ]);
     }
 
     await updateOrderFiles(orderId, {
@@ -85,20 +104,39 @@ router.post("/submit-stationery-order", async (req, res) => {
       return res.status(400).json({ error: "Missing stationery order data." });
     }
 
-    const fileNames = items
-      .map((i) => `${i.name} × ${i.quantity || 1}`)
-      .join(", ");
+    // Decrement stock and prepare display names
+    const itemDisplays = [];
+    for (const i of items) {
+      await pool.query(
+        `UPDATE stationery_products
+           SET quantity = GREATEST(quantity - $1, 0)
+         WHERE id = $2`,
+        [i.quantity, i.id],
+      );
+      itemDisplays.push(`${i.name} × ${i.quantity || 1}`);
+    }
+    const fileNames = itemDisplays.join(", ");
+    const totalPages = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+
     const { id: orderId } = await createOrder({
       userEmail: user,
       fileNames,
       printType: "stationery",
       sideOption: "",
       spiralBinding: 0,
-      totalPages: items.reduce((sum, i) => sum + (i.quantity || 1), 0),
+      totalPages,
       totalCost,
       createdAt,
     });
     const orderNumber = `ORD${orderId.toString().padStart(4, "0")}`;
+
+    // Persist items JSON
+    await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB`);
+    await pool.query(`UPDATE orders SET items = $1 WHERE id = $2`, [
+      JSON.stringify(items),
+      orderId,
+    ]);
+
     res.json({ orderNumber, totalCost });
   } catch (err) {
     console.error("❌ Failed to store stationery order:", err);
@@ -178,6 +216,7 @@ router.get("/get-orders", async (req, res) => {
       id: o.id,
       orderNumber: o.ordernumber,
       userEmail: o.useremail,
+      items: o.items ? JSON.parse(o.items) : [],
       fileNames: o.filenames,
       printType: o.printtype,
       sideOption: o.sideoption,

@@ -1,7 +1,6 @@
 // src/features/admin/components/OrdersTable.jsx
-
 import React from "react";
-import FileLinks from "/src/components/FileLinks"; // ✅ Correct absolute path
+import FileLinks from "/src/components/FileLinks";
 
 export default function OrdersTable({ orders, loading, handleStatusChange }) {
   if (loading) {
@@ -13,13 +12,13 @@ export default function OrdersTable({ orders, loading, handleStatusChange }) {
   }
 
   return (
-    // Removed the inner scroll container so the native <select> renders in-place
     <div className="rounded-xl border border-gray-300 shadow">
       <table className="min-w-full text-sm text-gray-800 whitespace-nowrap">
         <thead className="bg-gray-100 text-gray-600">
           <tr>
             <th className="px-3 py-2 border">Order No</th>
             <th className="px-3 py-2 border">User Email</th>
+            <th className="px-3 py-2 border">Items</th>
             <th className="px-3 py-2 border">Files</th>
             <th className="px-3 py-2 border">Pages</th>
             <th className="px-3 py-2 border">Options</th>
@@ -39,6 +38,15 @@ export default function OrdersTable({ orders, loading, handleStatusChange }) {
               </td>
               <td className="px-3 py-1 border text-center">
                 {order.userEmail}
+              </td>
+              <td className="px-3 py-1 border text-left">
+                {order.items.map((it, i) => (
+                  <div key={i}>
+                    {it.name} × {it.quantity || 1} <br />
+                    {it.variantSku && <span>SKU: {it.variantSku}</span>}
+                    {it.variantColor && <>, Color: {it.variantColor}</>}
+                  </div>
+                ))}
               </td>
               <td className="px-3 py-1 border text-center">
                 <FileLinks files={order.attachedFiles} />
