@@ -1,18 +1,12 @@
 // src/App.jsx
 
 import React, { useState, useEffect } from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Signup from "./components/Auth/Signup";
 import Login from "./components/Auth/Login";
+import VerifyMobile from "./components/Auth/VerifyMobile";
 import AdminDashboard from "./features/admin/AdminDashboard";
 import UserDashboard from "./features/user/UserDashboard";
-import VerifyMobile from "./components/Auth/VerifyMobile";
 import Cart from "./pages/Cart";
 import UserOrders from "./pages/UserOrders";
 import { auth } from "./config/firebaseConfig";
@@ -38,48 +32,48 @@ function AuthListener({ children }) {
 }
 
 function ProtectedUserRoute({ children }) {
-  const [state, setState] = useState("checking"); // checking, ok, redirectLogin, verify, blocked
+  const [status, setStatus] = useState("checking"); // checking → ok/redirectLogin/blocked/verify
   const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
       const u = auth.currentUser;
       if (!u) {
-        setState("redirectLogin");
+        setStatus("redirectLogin");
         return;
       }
-
       try {
-        // role
+        // 1. role
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (!["user", "admin"].includes(r.data.role)) {
-          setState("redirectLogin");
+          setStatus("redirectLogin");
           return;
         }
-        // profile
+        // 2. profile
         const p = await axios.get(`/api/get-profile?email=${u.email}`);
         if (p.data.blocked) {
           toast.error("Your account has been blocked.");
-          setState("blocked");
+          setStatus("blocked");
           return;
         }
         if (!p.data.mobileVerified) {
-          setState("verify");
+          setStatus("verify");
           return;
         }
-        setState("ok");
+        setStatus("ok");
       } catch {
-        setState("redirectLogin");
+        setStatus("redirectLogin");
       }
     })();
-  }, []); // run only once
+  }, []); // run once
 
-  if (state === "checking")
+  if (status === "checking")
     return <div className="text-center mt-10">Checking access...</div>;
-  if (state === "redirectLogin") return <Navigate to="/login" />;
-  if (state === "blocked") return <Navigate to="/login" />;
-  if (state === "verify") return <Navigate to="/verify-mobile" replace />;
-  return children; // ok
+  if (status === "redirectLogin") return <Navigate to="/login" replace />;
+  if (status === "blocked") return <Navigate to="/login" replace />;
+  if (status === "verify") return <Navigate to="/verify-mobile" replace />;
+  // ok
+  return children;
 }
 
 function ProtectedAdminRoute({ children }) {
@@ -88,7 +82,10 @@ function ProtectedAdminRoute({ children }) {
   useEffect(() => {
     (async () => {
       const u = auth.currentUser;
-      if (!u) return setOk(false);
+      if (!u) {
+        setOk(false);
+        return;
+      }
       try {
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (r.data.role !== "admin") {
@@ -106,11 +103,11 @@ function ProtectedAdminRoute({ children }) {
         setOk(false);
       }
     })();
-  }, []); // run only once
+  }, []); // run once
 
   if (ok === null)
     return <div className="text-center mt-10">Checking access...</div>;
-  return ok ? children : <Navigate to="/userdashboard" />;
+  return ok ? children : <Navigate to="/userdashboard" replace />;
 }
 
 export default function App() {
@@ -119,7 +116,7 @@ export default function App() {
       <AuthListener>
         <Toaster position="top-center" />
         <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/verify-mobile" element={<VerifyMobile />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />

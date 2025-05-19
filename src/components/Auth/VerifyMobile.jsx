@@ -41,6 +41,7 @@ export default function VerifyMobile() {
       const result = await verifyOtp(sessionId, otp);
       if (!result.success) {
         toast.error("Incorrect OTP. Try again.");
+        setLoading(false);
         return;
       }
       const user = auth.currentUser;
@@ -52,7 +53,7 @@ export default function VerifyMobile() {
         mobileVerified: true,
       });
       toast.success("Mobile verified successfully!");
-      window.location.replace("/userdashboard");
+      window.location.href = "/userdashboard";
     } catch {
       toast.error("OTP verification failed.");
     } finally {
