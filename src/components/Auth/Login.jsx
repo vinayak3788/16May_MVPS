@@ -77,9 +77,7 @@ export default function Login() {
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      if (await postLoginCheck(cred.user.email)) {
-        toast.success("Welcome back!");
-        navigate("/userdashboard");
+          navigate("/userdashboard");
       }
     } catch (err) {
       console.error("Login error:", err);

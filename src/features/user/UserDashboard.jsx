@@ -25,7 +25,6 @@ export default function UserDashboard() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        toast.error("No user logged in.");
         navigate("/login", { replace: true });
         return;
       }
