@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../../config/firebaseConfig";
 import { sendOtp, verifyOtp } from "../../api/otpApi";
+import { getProfile } from "../../api/userApi";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -13,29 +14,51 @@ export default function VerifyMobile() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Grab the mobile passed from signup (otherwise blank)
+  // Grab the mobile passed in from signup or previous page
   const initialMobile = location.state?.mobile || "";
   const [mobile, setMobile] = useState(initialMobile);
-  const [otp, setOtp] = useState("");
   const [sessionId, setSessionId] = useState("");
+  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // If we have an initial mobile, immediately send OTP on mount
+  // On mount, check if the user is already verified
   useEffect(() => {
-    if (initialMobile) {
-      handleSendOtp();
-    }
-  }, [initialMobile]);
+    const checkVerified = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+      try {
+        const profile = await getProfile(user.email);
+        if (profile.mobileVerified) {
+          // already verified, skip OTP
+          navigate("/userdashboard");
+          return;
+        }
+        // if we have an initial mobile, immediately send OTP
+        if (initialMobile) {
+          handleSendOtp(initialMobile);
+        }
+      } catch (err) {
+        console.error("Error checking profile:", err);
+      }
+    };
+    checkVerified();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSendOtp = async () => {
-    if (!/^\d{10}$/.test(mobile)) {
+  const handleSendOtp = async (overrideMobile) => {
+    const num = overrideMobile || mobile;
+    if (!/^\d{10}$/.test(num)) {
       toast.error("Enter a valid 10-digit mobile number.");
       return;
     }
     setLoading(true);
     try {
-      const result = await sendOtp(mobile);
-      setSessionId(result.sessionId);
+      const { sessionId } = await sendOtp(num);
+      setSessionId(sessionId);
+      setMobile(num);
       toast.success("OTP sent successfully!");
     } catch (err) {
       console.error("Error sending OTP:", err);
@@ -65,13 +88,12 @@ export default function VerifyMobile() {
         return;
       }
 
-      // Persist the verification flag—no need to re-enter mobile
       await axios.post("/api/update-profile", {
         email: user.email,
-        firstName: "", // leave unchanged server-side
+        firstName: "", // you can omit or fetch existing
         lastName: "",
-        mobileNumber: mobile, // from initial signup
-        mobileVerified: true, // now verified
+        mobileNumber: mobile,
+        mobileVerified: true,
       });
 
       toast.success("Mobile verified successfully!");
@@ -88,8 +110,8 @@ export default function VerifyMobile() {
     <Layout title="Verify Mobile Number">
       <Toaster />
 
-      {/* Only ask for mobile if none was passed in */}
-      {!initialMobile && !sessionId && (
+      {/* Ask for mobile only if we haven’t sent OTP yet and no initialMobile */}
+      {!sessionId && !initialMobile && (
         <>
           <input
             type="text"
@@ -100,7 +122,11 @@ export default function VerifyMobile() {
             }
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500 mb-4"
           />
-          <Button onClick={handleSendOtp} disabled={loading} className="w-full">
+          <Button
+            onClick={() => handleSendOtp()}
+            disabled={loading}
+            className="w-full"
+          >
             {loading ? "Sending OTP…" : "Send OTP"}
           </Button>
         </>
@@ -124,7 +150,7 @@ export default function VerifyMobile() {
           <Button
             onClick={handleVerifyOtp}
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700"
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
           >
             {loading ? "Verifying…" : "Verify & Continue"}
           </Button>
