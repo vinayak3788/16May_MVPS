@@ -195,11 +195,16 @@ router.post("/create-user-profile", async (req, res) => {
     await ensureUserRole(email);
 
     // map the front-end field to the DB column name
+    // parse the incoming string into a real Number (or null)
+    const mobileNumInt =
+      mobileNumber && /^\d{10}$/.test(mobileNumber)
+        ? parseInt(mobileNumber, 10)
+        : null;
     await upsertProfile({
       email,
       firstName,
       lastName,
-      mobilenumber: mobileNumber ? parseInt(mobileNumber, 10) : null,
+      mobilenumber: mobileNumInt,
       mobileverified: 0,
     });
 
