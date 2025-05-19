@@ -11,7 +11,7 @@ import pool, {
   upsertProfile,
   getProfile,
 } from "../db.js";
-import admin from "../firebaseAdmin.js"; // for delete-user
+import admin from "../firebaseAdmin.js";
 
 const router = express.Router();
 
@@ -194,12 +194,11 @@ router.post("/create-user-profile", async (req, res) => {
   try {
     await ensureUserRole(email);
 
-    // map the front-end field to the DB column name
-    // parse the incoming string into a real Number (or null)
-    const mobileNumInt =
-      mobileNumber && /^\d{10}$/.test(mobileNumber)
-        ? parseInt(mobileNumber, 10)
-        : null;
+    // only accept exactly 10 digits, else null
+    const mobileNumInt = /^\d{10}$/.test(mobileNumber)
+      ? parseInt(mobileNumber, 10)
+      : null;
+
     await upsertProfile({
       email,
       firstName,

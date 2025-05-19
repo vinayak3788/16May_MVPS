@@ -19,6 +19,7 @@ export default function Signup() {
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -36,13 +37,16 @@ export default function Signup() {
         setLoading(false);
         return;
       }
+
       await createUserWithEmailAndPassword(auth, email, password);
+
       await axios.post("/api/create-user-profile", {
         email,
         firstName,
         lastName,
         mobileNumber: mobile,
       });
+
       toast.success(`Welcome, ${firstName}!`);
       navigate("/verify-mobile");
     } catch (err) {
@@ -75,12 +79,14 @@ export default function Signup() {
         navigate("/login");
         return;
       }
+
       await axios.post("/api/create-user-profile", {
         email: userEmail,
         firstName: "",
         lastName: "",
         mobileNumber: "",
       });
+
       toast.success("Account created! Please verify mobile.");
       navigate("/verify-mobile");
     } catch (err) {
@@ -94,6 +100,7 @@ export default function Signup() {
   return (
     <Layout title="Sign Up for MVP Services">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* First Name */}
         <div>
           <label className="block mb-1 font-medium">First Name</label>
           <input
@@ -104,6 +111,8 @@ export default function Signup() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
+
+        {/* Last Name */}
         <div>
           <label className="block mb-1 font-medium">Last Name</label>
           <input
@@ -114,6 +123,8 @@ export default function Signup() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
+
+        {/* Mobile */}
         <div>
           <label className="block mb-1 font-medium">Mobile Number</label>
           <input
@@ -124,8 +135,12 @@ export default function Signup() {
             }
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
+            maxLength={10}
+            pattern="\d{10}"
           />
         </div>
+
+        {/* Email */}
         <div>
           <label className="block mb-1 font-medium">Email</label>
           <input
@@ -136,16 +151,26 @@ export default function Signup() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
-        <div>
+
+        {/* Password with show/hide */}
+        <div className="relative">
           <label className="block mb-1 font-medium">Password</label>
           <input
-            type="password"
+            type={showPwd ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
+            className="w-full border border-gray-300 px-3 py-2 rounded-md pr-10 focus:ring-2 focus:ring-purple-500"
           />
+          <span
+            onClick={() => setShowPwd((s) => !s)}
+            className="absolute right-3 top-9 cursor-pointer text-gray-500 select-none"
+          >
+            {showPwd ? "🙈" : "👁️"}
+          </span>
         </div>
+
+        {/* Submit */}
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Signing up…" : "Sign Up"}
         </Button>
@@ -153,6 +178,7 @@ export default function Signup() {
 
       <div className="text-center font-semibold my-6">OR</div>
 
+      {/* Google Signup */}
       <Button
         onClick={handleGoogleSignup}
         disabled={loading}
