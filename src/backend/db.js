@@ -108,6 +108,14 @@ export const upsertProfile = async ({
   mobileNumber,
   mobileVerified = false,
 }) => {
+  // Validate and convert mobileNumber into a JS Number (or null) for BIGINT column
+  const mobilenumber = /^\d{10}$/.test(mobileNumber)
+    ? parseInt(mobileNumber, 10)
+    : null;
+
+  // Convert boolean mobileVerified into integer 0 or 1
+  const mobileverified = mobileVerified ? 1 : 0;
+
   await pool.query(
     `INSERT INTO profiles(email, firstname, lastname, mobilenumber, mobileverified)
      VALUES ($1, $2, $3, $4, $5)
@@ -116,7 +124,7 @@ export const upsertProfile = async ({
        lastname       = EXCLUDED.lastname,
        mobilenumber   = EXCLUDED.mobilenumber,
        mobileverified = EXCLUDED.mobileverified`,
-    [email, firstName, lastName, mobileNumber, mobileVerified],
+    [email, firstName, lastName, mobilenumber, mobileverified],
   );
 };
 
@@ -125,9 +133,9 @@ export const getProfile = async (email) => {
     `
     SELECT
       p.email,
-      p.firstname     AS "firstName",
-      p.lastname      AS "lastName",
-      p.mobilenumber  AS "mobileNumber",
+      p.firstname      AS "firstName",
+      p.lastname       AS "lastName",
+      p.mobilenumber   AS "mobileNumber",
       p.mobileverified AS "mobileVerified",
       u.blocked,
       u.role
@@ -152,7 +160,6 @@ export const createOrder = async ({
   totalCost,
   createdAt,
 }) => {
-  // 1) insert order, get its id
   const insert = await pool.query(
     `INSERT INTO orders(
        userEmail, fileNames, printType,
@@ -174,7 +181,6 @@ export const createOrder = async ({
   const id = insert.rows[0].id;
   const orderNumber = `ORD${String(id).padStart(4, "0")}`;
 
-  // 2) update the orderNumber
   await pool.query(`UPDATE orders SET ordernumber = $1 WHERE id = $2`, [
     orderNumber,
     id,
@@ -203,8 +209,5 @@ export const updateOrderFiles = async (orderId, { fileNames, totalPages }) => {
     [fileNames, totalPages, orderId],
   );
 };
-
-// ——— Stationery Products (optional) ———
-// Add CRUD functions here as needed.
 
 export default pool;
