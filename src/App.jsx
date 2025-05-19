@@ -21,134 +21,95 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { CartProvider, useCart } from "./context/CartContext";
 
-// Clears cart on sign-out and waits for initial auth check
 function AuthListener({ children }) {
   const { clearCart } = useCart();
-  const [authReady, setAuthReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) clearCart();
-      setAuthReady(true);
+      setReady(true);
     });
     return () => unsub();
   }, [clearCart]);
 
-  if (!authReady) {
-    return <div className="text-center mt-10">Loading...</div>;
-  }
+  if (!ready) return <div className="text-center mt-10">Loading...</div>;
   return children;
 }
 
 function ProtectedUserRoute({ children }) {
-  const [status, setStatus] = useState("checking"); // "checking", "ok", "blocked", "verify", "redirectLogin"
-  const loc = useLocation();
+  const [state, setState] = useState("checking"); // checking, ok, redirectLogin, verify, blocked
   const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
       const u = auth.currentUser;
       if (!u) {
-        setStatus("redirectLogin");
+        setState("redirectLogin");
         return;
       }
 
       try {
-        // Role check
+        // role
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (!["user", "admin"].includes(r.data.role)) {
-          setStatus("redirectLogin");
+          setState("redirectLogin");
           return;
         }
-
-        // Block check
-        try {
-          const p = await axios.get(`/api/get-profile?email=${u.email}`);
-          if (p.data.blocked) {
-            toast.error("Your account has been blocked.");
-            setStatus("blocked");
-            return;
-          }
-        } catch (err) {
-          if (err.response?.status === 403) {
-            toast.error("Your account has been blocked.");
-            setStatus("blocked");
-            return;
-          }
-          throw err;
-        }
-
-        // Mobile verification check
-        const profile = await axios.get(`/api/get-profile?email=${u.email}`);
-        if (!profile.data.mobileVerified) {
-          setStatus("verify");
+        // profile
+        const p = await axios.get(`/api/get-profile?email=${u.email}`);
+        if (p.data.blocked) {
+          toast.error("Your account has been blocked.");
+          setState("blocked");
           return;
         }
-
-        setStatus("ok");
+        if (!p.data.mobileVerified) {
+          setState("verify");
+          return;
+        }
+        setState("ok");
       } catch {
-        setStatus("redirectLogin");
+        setState("redirectLogin");
       }
     })();
-  }, [loc.pathname]);
+  }, []); // run only once
 
-  if (status === "checking") {
+  if (state === "checking")
     return <div className="text-center mt-10">Checking access...</div>;
-  }
-  if (status === "redirectLogin") {
-    return <Navigate to="/login" />;
-  }
-  if (status === "blocked") {
-    return <Navigate to="/login" />;
-  }
-  if (status === "verify") {
-    return <Navigate to="/verify-mobile" replace />;
-  }
-  // ok
-  return children;
+  if (state === "redirectLogin") return <Navigate to="/login" />;
+  if (state === "blocked") return <Navigate to="/login" />;
+  if (state === "verify") return <Navigate to="/verify-mobile" replace />;
+  return children; // ok
 }
 
 function ProtectedAdminRoute({ children }) {
   const [ok, setOk] = useState(null);
-  const loc = useLocation();
 
   useEffect(() => {
     (async () => {
       const u = auth.currentUser;
       if (!u) return setOk(false);
-
       try {
-        // must be admin
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (r.data.role !== "admin") {
-          return setOk(false);
+          setOk(false);
+          return;
         }
-
-        // Block check
-        try {
-          const p = await axios.get(`/api/get-profile?email=${u.email}`);
-          if (p.data.blocked) {
-            toast.error("Your account has been blocked.");
-            return setOk(false);
-          }
-        } catch (err) {
-          if (err.response?.status === 403) {
-            toast.error("Your account has been blocked.");
-            return setOk(false);
-          }
-          throw err;
+        const p = await axios.get(`/api/get-profile?email=${u.email}`);
+        if (p.data.blocked) {
+          toast.error("Your account has been blocked.");
+          setOk(false);
+          return;
         }
-
         setOk(true);
       } catch {
         setOk(false);
       }
     })();
-  }, [loc.pathname]);
+  }, []); // run only once
 
-  if (ok === null) {
+  if (ok === null)
     return <div className="text-center mt-10">Checking access...</div>;
-  }
   return ok ? children : <Navigate to="/userdashboard" />;
 }
 
