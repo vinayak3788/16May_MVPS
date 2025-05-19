@@ -24,7 +24,6 @@ router.get("/get-role", async (req, res) => {
     await ensureUserRole(email);
     const role = await getUserRole(email);
 
-    // Admins skip block + mobile checks entirely
     if (role === "admin" || role === "super-admin") {
       return res.json({ role });
     }
@@ -33,7 +32,6 @@ router.get("/get-role", async (req, res) => {
       return res.status(403).json({ error: "User is blocked." });
     }
 
-    // Enforce mobile verified for non-admins
     const profileRow = (
       await pool.query(`SELECT mobileverified FROM profiles WHERE email = $1`, [
         email,
@@ -156,7 +154,6 @@ router.post("/delete-user", async (req, res) => {
   if (!email) return res.status(400).json({ error: "Email required." });
 
   try {
-    // Firebase Auth deletion
     try {
       const userRec = await admin.auth().getUserByEmail(email);
       await admin.auth().deleteUser(userRec.uid);
@@ -196,13 +193,16 @@ router.post("/create-user-profile", async (req, res) => {
 
   try {
     await ensureUserRole(email);
+
+    // map the front-end field to the DB column name
     await upsertProfile({
       email,
       firstName,
       lastName,
-      mobileNumber,
-      mobileVerified: 0,
+      mobilenumber: mobileNumber,
+      mobileverified: 0,
     });
+
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Error creating user profile:", err);

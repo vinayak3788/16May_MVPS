@@ -1,3 +1,4 @@
+// src/components/Auth/Signup.jsx
 import React, { useState } from "react";
 import { auth, googleProvider } from "../../config/firebaseConfig.js";
 import {
@@ -45,8 +46,12 @@ export default function Signup() {
       toast.success(`Welcome, ${firstName}!`);
       navigate("/verify-mobile");
     } catch (err) {
-      console.error("Signup error:", err);
-      toast.error("Signup failed. Please try again.");
+      console.error("Signup error:", err, err.response?.data);
+      toast.error(
+        err.response?.data?.error
+          ? `Signup failed: ${err.response.data.error}`
+          : "Signup failed. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -151,7 +156,7 @@ export default function Signup() {
       <Button
         onClick={handleGoogleSignup}
         disabled={loading}
-        className="w-full flex items-center justify-center border border-gray-300 bg-white text-gray-800 hover:bg-gray-100"
+        className="w-full !text-gray-800 flex items-center justify-center border border-gray-300 bg-white hover:bg-gray-100"
       >
         <img src="/google-logo.svg" alt="Google" className="w-5 h-5 mr-2" />
         Sign up with Google
