@@ -74,6 +74,7 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("🔔 handleSubmit fired", { email, password });
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
