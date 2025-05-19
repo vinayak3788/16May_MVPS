@@ -1,7 +1,13 @@
 // src/App.jsx
 
 import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import Signup from "./components/Auth/Signup";
 import Login from "./components/Auth/Login";
 import AdminDashboard from "./features/admin/AdminDashboard";
@@ -12,10 +18,10 @@ import UserOrders from "./pages/UserOrders";
 import { auth } from "./config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import axios from "axios";
-import toast, { Toaster } from "react-hot-toast"; // ← added toast import
+import toast, { Toaster } from "react-hot-toast";
 import { CartProvider, useCart } from "./context/CartContext";
 
-// Clears cart on sign-out (or session expiration) and waits for initial auth check
+// Clears cart on sign-out and waits for initial auth check
 function AuthListener({ children }) {
   const { clearCart } = useCart();
   const [authReady, setAuthReady] = useState(false);
@@ -26,7 +32,7 @@ function AuthListener({ children }) {
       setAuthReady(true);
     });
     return () => unsub();
-  }, []);
+  }, [clearCart]);
 
   if (!authReady) {
     return <div className="text-center mt-10">Loading...</div>;
@@ -35,48 +41,71 @@ function AuthListener({ children }) {
 }
 
 function ProtectedUserRoute({ children }) {
-  const [ok, setOk] = useState(null);
+  const [status, setStatus] = useState("checking"); // "checking", "ok", "blocked", "verify", "redirectLogin"
   const loc = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const check = async () => {
+    (async () => {
       const u = auth.currentUser;
-      if (!u) return setOk(false);
+      if (!u) {
+        setStatus("redirectLogin");
+        return;
+      }
 
       try {
-        // 1️⃣ Role check
+        // Role check
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (!["user", "admin"].includes(r.data.role)) {
-          return setOk(false);
+          setStatus("redirectLogin");
+          return;
         }
 
-        // 2️⃣ Block check
+        // Block check
         try {
           const p = await axios.get(`/api/get-profile?email=${u.email}`);
           if (p.data.blocked) {
             toast.error("Your account has been blocked.");
-            return setOk(false);
+            setStatus("blocked");
+            return;
           }
         } catch (err) {
           if (err.response?.status === 403) {
             toast.error("Your account has been blocked.");
-            return setOk(false);
+            setStatus("blocked");
+            return;
           }
           throw err;
         }
 
-        setOk(true);
+        // Mobile verification check
+        const profile = await axios.get(`/api/get-profile?email=${u.email}`);
+        if (!profile.data.mobileVerified) {
+          setStatus("verify");
+          return;
+        }
+
+        setStatus("ok");
       } catch {
-        setOk(false);
+        setStatus("redirectLogin");
       }
-    };
-    check();
+    })();
   }, [loc.pathname]);
 
-  if (ok === null) {
+  if (status === "checking") {
     return <div className="text-center mt-10">Checking access...</div>;
   }
-  return ok ? children : <Navigate to="/login" />;
+  if (status === "redirectLogin") {
+    return <Navigate to="/login" />;
+  }
+  if (status === "blocked") {
+    return <Navigate to="/login" />;
+  }
+  if (status === "verify") {
+    return <Navigate to="/verify-mobile" replace />;
+  }
+  // ok
+  return children;
 }
 
 function ProtectedAdminRoute({ children }) {
@@ -84,18 +113,18 @@ function ProtectedAdminRoute({ children }) {
   const loc = useLocation();
 
   useEffect(() => {
-    const check = async () => {
+    (async () => {
       const u = auth.currentUser;
       if (!u) return setOk(false);
 
       try {
-        // 1️⃣ Role must be admin
+        // must be admin
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (r.data.role !== "admin") {
           return setOk(false);
         }
 
-        // 2️⃣ Block check
+        // Block check
         try {
           const p = await axios.get(`/api/get-profile?email=${u.email}`);
           if (p.data.blocked) {
@@ -114,8 +143,7 @@ function ProtectedAdminRoute({ children }) {
       } catch {
         setOk(false);
       }
-    };
-    check();
+    })();
   }, [loc.pathname]);
 
   if (ok === null) {
