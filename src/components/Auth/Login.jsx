@@ -20,15 +20,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle Google redirect sign-in
   useEffect(() => {
     getRedirectResult(auth)
       .then(async (result) => {
         if (result?.user) {
           const userEmail = result.user.email;
           if (await postLoginCheck(userEmail)) {
-            toast.success("Welcome back!");
-            navigate("/userdashboard", { replace: true });
+            navigate("/userdashboard");
           }
         }
       })
@@ -38,7 +36,6 @@ export default function Login() {
       });
   }, [navigate]);
 
-  // Shared checks after any sign-in
   const postLoginCheck = async (userEmail) => {
     try {
       const { data: profile } = await axios.get(
@@ -52,9 +49,10 @@ export default function Login() {
       }
 
       const verified = [1, "1", true].includes(profile.mobileVerified);
+
       if (!verified) {
         toast.error("Please verify your mobile number.");
-        navigate("/verify-mobile", { replace: true });
+        navigate("/verify-mobile");
         return false;
       }
 
@@ -63,7 +61,7 @@ export default function Login() {
       if (err.response?.status === 404) {
         toast.error("No account found. Please sign up first.");
         await auth.signOut();
-        navigate("/signup", { replace: true });
+        navigate("/signup");
       } else {
         console.error("Error fetching profile:", err);
         toast.error("Server error. Try again later.");
@@ -73,19 +71,14 @@ export default function Login() {
     }
   };
 
-  // Email/password login handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const cred = await signInWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password,
-      );
+      const cred = await signInWithEmailAndPassword(auth, email, password);
       if (await postLoginCheck(cred.user.email)) {
         toast.success("Welcome back!");
-        navigate("/userdashboard", { replace: true });
+        navigate("/userdashboard");
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -95,14 +88,13 @@ export default function Login() {
     }
   };
 
-  // Google popup login handler
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       if (await postLoginCheck(result.user.email)) {
         toast.success("Welcome back!");
-        navigate("/userdashboard", { replace: true });
+        navigate("/userdashboard");
       }
     } catch (err) {
       console.error("Google popup sign-in error:", err);
@@ -154,7 +146,7 @@ export default function Login() {
       <p className="mt-6 text-center text-sm">
         Don’t have an account?{" "}
         <button
-          onClick={() => navigate("/signup", { replace: true })}
+          onClick={() => navigate("/signup")}
           className="text-purple-600 font-medium underline"
         >
           Sign Up
