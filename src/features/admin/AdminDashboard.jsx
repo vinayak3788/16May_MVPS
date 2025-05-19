@@ -24,7 +24,7 @@ import {
   unblockUser,
   deleteUser,
   updateProfile,
-  verifyMobileManual,    // re-added
+  verifyMobileManual, // re-added
 } from "../../api/userApi";
 
 export default function AdminDashboard() {
@@ -204,7 +204,7 @@ export default function AdminDashboard() {
               handleBlockUser={handleBlockUser}
               handleUnblockUser={handleUnblockUser}
               handleDeleteUser={handleDeleteUser}
-              handleVerifyMobile={handleVerifyMobile}  {/* restored */}
+              handleVerifyMobile={handleVerifyMobile}
               setEditUser={setEditUser}
             />
             {editUser && (
