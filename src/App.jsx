@@ -1,7 +1,13 @@
 // src/App.jsx
 
 import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import Signup from "./components/Auth/Signup";
 import Login from "./components/Auth/Login";
 import VerifyMobile from "./components/Auth/VerifyMobile";
@@ -15,6 +21,7 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { CartProvider, useCart } from "./context/CartContext";
 
+// Clears cart on sign-out and waits for initial auth check
 function AuthListener({ children }) {
   const { clearCart } = useCart();
   const [ready, setReady] = useState(false);
@@ -31,53 +38,71 @@ function AuthListener({ children }) {
   return children;
 }
 
+// Protects user routes and redirects unverified users once
 function ProtectedUserRoute({ children }) {
-  const [status, setStatus] = useState("checking"); // checking → ok/redirectLogin/blocked/verify
+  const [status, setStatus] = useState("checking"); // checking, ok, redirectLogin, blocked, verify
+  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
       const u = auth.currentUser;
+      // Not logged in
       if (!u) {
         setStatus("redirectLogin");
         return;
       }
+
+      // If we’re already on the OTP page, skip the check here to avoid loop
+      if (location.pathname === "/verify-mobile") {
+        setStatus("ok");
+        return;
+      }
+
       try {
-        // 1. role
+        // 1️⃣ Role check
         const r = await axios.get(`/api/get-role?email=${u.email}`);
         if (!["user", "admin"].includes(r.data.role)) {
           setStatus("redirectLogin");
           return;
         }
-        // 2. profile
+
+        // 2️⃣ Profile fetch
         const p = await axios.get(`/api/get-profile?email=${u.email}`);
         if (p.data.blocked) {
           toast.error("Your account has been blocked.");
           setStatus("blocked");
           return;
         }
+
+        // 3️⃣ Mobile verification check
         if (!p.data.mobileVerified) {
           setStatus("verify");
           return;
         }
+
+        // All good
         setStatus("ok");
       } catch {
         setStatus("redirectLogin");
       }
     })();
-  }, []); // run once
+  }, [location.pathname, navigate]);
 
-  if (status === "checking")
+  if (status === "checking") {
     return <div className="text-center mt-10">Checking access...</div>;
+  }
   if (status === "redirectLogin") return <Navigate to="/login" replace />;
   if (status === "blocked") return <Navigate to="/login" replace />;
   if (status === "verify") return <Navigate to="/verify-mobile" replace />;
-  // ok
+  // status === ok
   return children;
 }
 
+// Protects admin routes
 function ProtectedAdminRoute({ children }) {
   const [ok, setOk] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
     (async () => {
@@ -103,10 +128,11 @@ function ProtectedAdminRoute({ children }) {
         setOk(false);
       }
     })();
-  }, []); // run once
+  }, [location.pathname]);
 
-  if (ok === null)
+  if (ok === null) {
     return <div className="text-center mt-10">Checking access...</div>;
+  }
   return ok ? children : <Navigate to="/userdashboard" replace />;
 }
 
