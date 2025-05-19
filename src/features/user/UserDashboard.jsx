@@ -1,4 +1,5 @@
 // src/features/user/UserDashboard.jsx
+
 import React, { useState, useEffect } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -13,33 +14,31 @@ import UploadOrderForm from "./components/UploadOrderForm";
 import OrdersHistory from "./components/OrdersHistory";
 import StationeryStore from "./components/StationeryStore";
 import { useOrders } from "./components/useOrders";
-import { useAuthCheck } from "./components/useAuthCheck";
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const [pending, setPending] = useState(true);
   const { files, setFiles, myOrders, fetchMyOrders, ordersLoading } =
     useOrders();
-  const { validateMobile } = useAuthCheck();
   const [activeTab, setActiveTab] = useState("orders");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         toast.error("No user logged in.");
-        navigate("/login");
-      } else {
-        await validateMobile(user.email);
-        setPending(false);
-        fetchMyOrders(user.email);
+        navigate("/login", { replace: true });
+        return;
       }
+      // Only fetch orders once, after login confirmed
+      await fetchMyOrders(user.email);
+      setPending(false);
     });
     return () => unsub();
-  }, [navigate, validateMobile, fetchMyOrders]);
+  }, [fetchMyOrders, navigate]);
 
   const handleLogout = async () => {
     await signOut(auth);
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const handleViewCart = () => navigate("/cart");
