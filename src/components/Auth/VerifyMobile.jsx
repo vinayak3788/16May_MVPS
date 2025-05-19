@@ -1,18 +1,40 @@
 // src/components/Auth/VerifyMobile.jsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { auth } from "../../config/firebaseConfig";
 import { sendOtp, verifyOtp } from "../../api/otpApi";
+import { getProfile } from "../../api/userApi";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import Layout from "../Layout";
 import Button from "../Button";
 
 export default function VerifyMobile() {
+  const navigate = useNavigate();
   const [mobile, setMobile] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // On first render, redirect already-verified users to dashboard
+  useEffect(() => {
+    (async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      try {
+        const { mobileVerified } = await getProfile(user.email);
+        if (mobileVerified) {
+          navigate("/userdashboard", { replace: true });
+        }
+      } catch (err) {
+        console.error("Profile check failed:", err);
+      }
+    })();
+  }, [navigate]);
 
   const handleSendOtp = async () => {
     if (!/^\d{10}$/.test(mobile)) {
@@ -53,7 +75,7 @@ export default function VerifyMobile() {
         mobileVerified: true,
       });
       toast.success("Mobile verified successfully!");
-      window.location.href = "/userdashboard";
+      navigate("/userdashboard", { replace: true });
     } catch {
       toast.error("OTP verification failed.");
     } finally {
@@ -64,6 +86,7 @@ export default function VerifyMobile() {
   return (
     <Layout title="Verify Mobile Number">
       <Toaster />
+
       {!sessionId ? (
         <>
           <input
