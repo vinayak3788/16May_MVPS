@@ -174,11 +174,28 @@ router.post("/verify-mobile-manual", async (req, res) => {
   if (!email) return res.status(400).json({ error: "Email required." });
 
   try {
+    // 1. Fetch the existing profile
     const profile = await getProfile(email);
     if (!profile) return res.status(404).json({ error: "Profile not found." });
 
+    // 2. Compute new verified status (0 or 1)
     const newStatus = profile.mobileVerified ? 0 : 1;
-    await upsertProfile({ ...profile, mobileVerified: newStatus });
+
+    // 3. Parse the existing mobileNumber into a string of digits
+    const rawMobile = profile.mobileNumber?.toString() || "";
+    const mobilenumber = /^\d{10}$/.test(rawMobile)
+      ? parseInt(rawMobile, 10)
+      : null;
+
+    // 4. Upsert with the toggled flag and parsed number
+    await upsertProfile({
+      email,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      mobileNumber: mobilenumber, // will be coerced again inside upsert if needed
+      mobileVerified: newStatus, // boolean-like 0/1
+    });
+
     res.json({ message: "Mobile verification status updated." });
   } catch (err) {
     console.error("❌ Error toggling mobile verification:", err);

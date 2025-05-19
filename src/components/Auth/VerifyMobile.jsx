@@ -1,20 +1,31 @@
 // src/components/Auth/VerifyMobile.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../../config/firebaseConfig";
 import { sendOtp, verifyOtp } from "../../api/otpApi";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 
 import Layout from "../Layout";
 import Button from "../Button";
 
 export default function VerifyMobile() {
-  const [mobile, setMobile] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Grab the mobile passed from signup (otherwise blank)
+  const initialMobile = location.state?.mobile || "";
+  const [mobile, setMobile] = useState(initialMobile);
   const [otp, setOtp] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+
+  // If we have an initial mobile, immediately send OTP on mount
+  useEffect(() => {
+    if (initialMobile) {
+      handleSendOtp();
+    }
+  }, [initialMobile]);
 
   const handleSendOtp = async () => {
     if (!/^\d{10}$/.test(mobile)) {
@@ -54,10 +65,13 @@ export default function VerifyMobile() {
         return;
       }
 
+      // Persist the verification flag—no need to re-enter mobile
       await axios.post("/api/update-profile", {
         email: user.email,
-        mobileNumber: mobile,
-        mobileVerified: true,
+        firstName: "", // leave unchanged server-side
+        lastName: "",
+        mobileNumber: mobile, // from initial signup
+        mobileVerified: true, // now verified
       });
 
       toast.success("Mobile verified successfully!");
@@ -73,7 +87,9 @@ export default function VerifyMobile() {
   return (
     <Layout title="Verify Mobile Number">
       <Toaster />
-      {!sessionId ? (
+
+      {/* Only ask for mobile if none was passed in */}
+      {!initialMobile && !sessionId && (
         <>
           <input
             type="text"
@@ -88,8 +104,14 @@ export default function VerifyMobile() {
             {loading ? "Sending OTP…" : "Send OTP"}
           </Button>
         </>
-      ) : (
+      )}
+
+      {/* OTP entry */}
+      {sessionId && (
         <>
+          <p className="mb-2">
+            OTP sent to <strong>{mobile}</strong>
+          </p>
           <input
             type="text"
             placeholder="Enter OTP"
