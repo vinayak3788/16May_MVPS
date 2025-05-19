@@ -199,7 +199,7 @@ router.post("/create-user-profile", async (req, res) => {
       email,
       firstName,
       lastName,
-      mobilenumber: mobileNumber,
+      mobilenumber: mobileNumber ? parseInt(mobileNumber, 10) : null,
       mobileverified: 0,
     });
 
