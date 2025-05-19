@@ -23,7 +23,6 @@ import {
   unblockUser,
   deleteUser,
   updateProfile,
-  verifyMobileManual,
 } from "../../api/userApi";
 
 export default function AdminDashboard() {
@@ -134,19 +133,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleVerifyMobile = async (email) => {
-    setLoading(true);
-    try {
-      await verifyMobileManual(email);
-      toast.success("Mobile status toggled");
-      await fetchUsers();
-    } catch {
-      toast.error("Verification failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
@@ -203,7 +189,6 @@ export default function AdminDashboard() {
               handleBlockUser={handleBlockUser}
               handleUnblockUser={handleUnblockUser}
               handleDeleteUser={handleDeleteUser}
-              handleVerifyMobile={handleVerifyMobile}
               setEditUser={setEditUser}
             />
             {editUser && (
