@@ -26,6 +26,7 @@ export default function Login() {
         if (result?.user) {
           const userEmail = result.user.email;
           if (await postLoginCheck(userEmail)) {
+            toast.success("Welcome back!");
             navigate("/userdashboard");
           }
         }
