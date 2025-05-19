@@ -20,7 +20,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle Google redirect result
+  // Handle Google redirect sign-in
   useEffect(() => {
     getRedirectResult(auth)
       .then(async (result) => {
@@ -38,7 +38,7 @@ export default function Login() {
       });
   }, [navigate]);
 
-  // Shared post-login checks
+  // Shared checks after any sign-in
   const postLoginCheck = async (userEmail) => {
     try {
       const { data: profile } = await axios.get(
@@ -73,7 +73,7 @@ export default function Login() {
     }
   };
 
-  // Email/password login
+  // Email/password login handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -95,7 +95,7 @@ export default function Login() {
     }
   };
 
-  // Google popup login
+  // Google popup login handler
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
