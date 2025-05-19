@@ -217,17 +217,20 @@ router.post("/create-user-profile", async (req, res) => {
   try {
     await ensureUserRole(email);
 
-    // only accept exactly 10 digits, else null
-    const mobileNumInt = /^\d{10}$/.test(mobileNumber)
+    // Validate & parse the 10-digit string into a Number, or null
+    const mobilenumber = /^\d{10}$/.test(mobileNumber)
       ? parseInt(mobileNumber, 10)
       : null;
+
+    // For a fresh signup, mobileVerified is always 0
+    const mobileVerified = 0;
 
     await upsertProfile({
       email,
       firstName,
       lastName,
-      mobilenumber: mobileNumInt,
-      mobileverified: 0,
+      mobileNumber: mobilenumber, // must be the JS Number or null
+      mobileVerified, // must be 0 or 1
     });
 
     res.json({ success: true });
@@ -236,5 +239,4 @@ router.post("/create-user-profile", async (req, res) => {
     res.status(500).json({ error: "Internal error creating profile." });
   }
 });
-
 export default router;

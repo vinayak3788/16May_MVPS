@@ -1,4 +1,5 @@
 // src/features/admin/AdminDashboard.jsx
+
 import React, { useEffect, useState } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -23,6 +24,7 @@ import {
   unblockUser,
   deleteUser,
   updateProfile,
+  verifyMobileManual,    // re-added
 } from "../../api/userApi";
 
 export default function AdminDashboard() {
@@ -133,6 +135,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleVerifyMobile = async (email) => {
+    setLoading(true);
+    try {
+      await verifyMobileManual(email);
+      toast.success("Mobile status toggled");
+      await fetchUsers();
+    } catch {
+      toast.error("Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
@@ -189,6 +204,7 @@ export default function AdminDashboard() {
               handleBlockUser={handleBlockUser}
               handleUnblockUser={handleUnblockUser}
               handleDeleteUser={handleDeleteUser}
+              handleVerifyMobile={handleVerifyMobile}  {/* restored */}
               setEditUser={setEditUser}
             />
             {editUser && (
