@@ -52,7 +52,7 @@ app.use((req, res, next) => {
       // allow Firebase OAuth popups
       "frame-src 'self' blob: https://apis.google.com https://*.firebaseapp.com",
       // static assets and domain images
-      "img-src 'self' data: https://*.s3.amazonaws.com https://my-mvps.in",
+      "img-src 'self' data: https://*.s3.amazonaws.com https://*.s3.ap-south-1.amazonaws.com https://my-mvps.in",
     ].join("; "),
   );
   next();
