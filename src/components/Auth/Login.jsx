@@ -1,12 +1,8 @@
 // src/components/Auth/Login.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { auth, googleProvider } from "../../config/firebaseConfig";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  getRedirectResult,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -20,25 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    console.log("🔔 getRedirectResult starting…");
-    getRedirectResult(auth)
-      .then(async (result) => {
-        console.log("🔔 getRedirectResult result:", result);
-        if (result?.user) {
-          const userEmail = result.user.email;
-          if (await postLoginCheck(userEmail)) {
-            toast.success("Welcome back!");
-            navigate("/userdashboard");
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Redirect sign-in error:", err);
-        toast.error("Google sign-in failed. Please try again.");
-      });
-  }, [navigate]);
-
+  // Shared check after any sign-in method
   const postLoginCheck = async (userEmail) => {
     try {
       const { data: profile } = await axios.get(
@@ -53,7 +31,6 @@ export default function Login() {
       }
 
       const verified = [1, "1", true].includes(profile.mobileVerified);
-
       if (!verified) {
         toast.error("Please verify your mobile number.");
         navigate("/verify-mobile");
@@ -124,6 +101,7 @@ export default function Login() {
           <label className="block mb-1 font-medium">Email</label>
           <input
             type="email"
+            name="email"
             value={email}
             autoComplete="off"
             onChange={(e) => {
@@ -136,11 +114,12 @@ export default function Login() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
+
         <div>
           <label className="block mb-1 font-medium">Password</label>
-          autoComplete="new-password"
           <input
             type="password"
+            name="password"
             value={password}
             onChange={(e) => {
               console.log("🔑 Password input:", e.target.value);
@@ -152,6 +131,7 @@ export default function Login() {
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
         </div>
+
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Signing in…" : "Log In"}
         </Button>
