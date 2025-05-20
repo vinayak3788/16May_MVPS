@@ -7,25 +7,14 @@
     <meta
       http-equiv="Content-Security-Policy"
       content="
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' https://apis.google.com;
-        connect-src
-          'self'
-          https://www.googleapis.com
-          https://identitytoolkit.googleapis.com
-          https://securetoken.googleapis.com;
-        frame-src
-          'self'
-          blob:
-          https://apis.google.com
-          https://*.firebaseapp.com;
-        style-src 'self' 'unsafe-inline';
-        img-src
-          'self'
-          data:
-          https://mvps-print-orders.s3.amazonaws.com
-          https://my-mvps.in;
-      "
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' https://apis.google.com;
+      script-src-elem 'self' 'unsafe-inline' https://apis.google.com;
+      connect-src 'self' https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;
+      frame-src 'self' blob: https://apis.google.com https://*.firebaseapp.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: https://mvps-print-orders.s3.amazonaws.com https://my-mvps.in;
+    "
     />
 
     <title>MVP Services</title>
