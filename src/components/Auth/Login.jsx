@@ -121,9 +121,11 @@ export default function Login() {
             type="email"
             value={email}
             onChange={(e) => {
-              console.log("✉️  Email input:", e.target.value);
+              console.log("✉️ Email input:", e.target.value);
               setEmail(e.target.value);
             }}
+            onFocus={() => console.log("✉️ Email focused")}
+            onKeyDown={(e) => console.log("✉️ Email key:", e.key)}
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
@@ -137,6 +139,8 @@ export default function Login() {
               console.log("🔑 Password input:", e.target.value);
               setPassword(e.target.value);
             }}
+            onFocus={() => console.log("🔑 Password focused")}
+            onKeyDown={(e) => console.log("🔑 Password key:", e.key)}
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
