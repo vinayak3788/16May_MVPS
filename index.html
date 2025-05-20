@@ -2,14 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MVPS Printing</title>
-    <!-- Entry point for Vite to inject scripts/styles -->
-    <script type="module" src="/src/main.jsx"></script>
-    <link rel="stylesheet" href="/src/index.css" />
+
+    <!-- Content Security Policy -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://apis.google.com;
+        connect-src
+          'self'
+          https://www.googleapis.com
+          https://identitytoolkit.googleapis.com
+          https://securetoken.googleapis.com;
+        frame-src
+          'self'
+          blob:
+          https://apis.google.com
+          https://*.firebaseapp.com;
+        style-src 'self' 'unsafe-inline';
+        img-src
+          'self'
+          data:
+          https://mvps-print-orders.s3.amazonaws.com
+          https://<YOUR-STATIONERY-IMAGE-HOST>;
+      "
+    />
+
+    <title>MVP Services</title>
+    <!-- other head elements -->
   </head>
   <body>
     <div id="root"></div>
+    <!-- bundle scripts -->
   </body>
 </html>

@@ -1,5 +1,3 @@
-// src/components/Auth/Login.jsx
-
 import React, { useState } from "react";
 import { auth, googleProvider } from "../../config/firebaseConfig";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
@@ -16,8 +14,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Shared post-login checks
+  // Super-admin bypass
   const postLoginCheck = async (userEmail) => {
+    if (userEmail === "vinayak3788@gmail.com") {
+      return true;
+    }
+
     try {
       const { data: profile } = await axios.get(
         `/api/get-profile?email=${encodeURIComponent(userEmail)}`,
@@ -51,7 +53,6 @@ export default function Login() {
     }
   };
 
-  // Email/password login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -69,7 +70,6 @@ export default function Login() {
     }
   };
 
-  // Google OAuth login
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
