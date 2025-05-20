@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node src/backend/index.js\" \"vite\"",
+    "server": "node src/backend/index.js",
+    "dev:client": "vite",
+    "dev": "concurrently \"npm run server\" \"npm run dev:client\"",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node src/backend/index.js"
@@ -28,6 +30,7 @@
     "path-to-regexp": "^6.2.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.1.91",
+    "pg": "^8.16.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hot-toast": "^2.5.2",
