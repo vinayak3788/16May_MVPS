@@ -1,4 +1,5 @@
 // src/backend/routes/userRoutes.js
+
 import express from "express";
 import pool, {
   ensureUserRole,
@@ -17,6 +18,7 @@ const router = express.Router();
 
 // ——— Fetch (and auto-create) a user’s role, with admin bypass ———
 router.get("/get-role", async (req, res) => {
+  console.log("🔔 [API] GET /api/get-role →", req.query);
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required." });
 
@@ -51,6 +53,7 @@ router.get("/get-role", async (req, res) => {
 
 // ——— Fetch user profile ———
 router.get("/get-profile", async (req, res) => {
+  console.log("🔔 [API] GET /api/get-profile →", req.query);
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required." });
 

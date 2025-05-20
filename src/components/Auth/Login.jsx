@@ -21,8 +21,10 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("🔔 getRedirectResult starting…");
     getRedirectResult(auth)
       .then(async (result) => {
+        console.log("🔔 getRedirectResult result:", result);
         if (result?.user) {
           const userEmail = result.user.email;
           if (await postLoginCheck(userEmail)) {
@@ -42,6 +44,7 @@ export default function Login() {
       const { data: profile } = await axios.get(
         `/api/get-profile?email=${encodeURIComponent(userEmail)}`,
       );
+      console.log("🔔 postLoginCheck profile:", profile);
 
       if (profile.blocked) {
         toast.error("Your account has been blocked. Contact admin.");
@@ -59,12 +62,12 @@ export default function Login() {
 
       return true;
     } catch (err) {
+      console.error("Error fetching profile:", err);
       if (err.response?.status === 404) {
         toast.error("No account found. Please sign up first.");
         await auth.signOut();
         navigate("/signup");
       } else {
-        console.error("Error fetching profile:", err);
         toast.error("Server error. Try again later.");
         await auth.signOut();
       }
@@ -78,6 +81,7 @@ export default function Login() {
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
+      console.log("🔔 signInWithEmailAndPassword cred:", cred);
       if (await postLoginCheck(cred.user.email)) {
         toast.success("Welcome back!");
         navigate("/userdashboard");
@@ -91,9 +95,11 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
+    console.log("🔔 handleGoogleLogin clicked");
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      console.log("🔔 signInWithPopup result:", result);
       if (await postLoginCheck(result.user.email)) {
         toast.success("Welcome back!");
         navigate("/userdashboard");
@@ -114,7 +120,10 @@ export default function Login() {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              console.log("✉️  Email input:", e.target.value);
+              setEmail(e.target.value);
+            }}
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
@@ -124,7 +133,10 @@ export default function Login() {
           <input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              console.log("🔑 Password input:", e.target.value);
+              setPassword(e.target.value);
+            }}
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
