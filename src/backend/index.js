@@ -37,17 +37,22 @@ app.use((req, res, next) => {
   next();
 });
 
-// 3️⃣ Content Security Policy
+// 3️⃣ Content Security Policy (CSP) header
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      // adjust these domains to match your Firebase setup
-      "script-src 'self' https://www.gstatic.com https://apis.google.com 'unsafe-inline'",
+      // allow Firebase scripts and Google APIs
+      "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com",
+      // inline styles for Tailwind etc.
       "style-src 'self' 'unsafe-inline'",
-      "connect-src 'self' https://identitytoolkit.googleapis.com https://www.googleapis.com",
-      "img-src 'self' data: https://mvps-print-orders-s3.s3.amazonaws.com",
+      // API & token endpoints for Firebase and Google
+      "connect-src 'self' https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
+      // allow Firebase OAuth popups
+      "frame-src 'self' blob: https://apis.google.com https://*.firebaseapp.com",
+      // static assets and domain images
+      "img-src 'self' data: https://mvps-print-orders-s3.s3.amazonaws.com https://my-mvps.in",
     ].join("; "),
   );
   next();
