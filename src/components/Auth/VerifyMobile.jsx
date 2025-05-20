@@ -1,12 +1,11 @@
 // src/components/Auth/VerifyMobile.jsx
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../config/firebaseConfig";
 import { sendOtp, verifyOtp } from "../../api/otpApi";
 import { getProfile } from "../../api/userApi";
 import axios from "axios";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import Layout from "../Layout";
 import Button from "../Button";
 
@@ -17,7 +16,7 @@ export default function VerifyMobile() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // On first render, redirect already-verified users to dashboard
+  // Redirect if already verified
   useEffect(() => {
     (async () => {
       const user = auth.currentUser;
@@ -66,14 +65,13 @@ export default function VerifyMobile() {
         setLoading(false);
         return;
       }
+
+      // mark verified via existing endpoint
       const user = auth.currentUser;
-      await axios.post("/api/update-profile", {
+      await axios.post("/api/verify-mobile-manual", {
         email: user.email,
-        firstName: "",
-        lastName: "",
-        mobileNumber: mobile,
-        mobileVerified: true,
       });
+
       toast.success("Mobile verified successfully!");
       navigate("/userdashboard", { replace: true });
     } catch {
@@ -85,8 +83,6 @@ export default function VerifyMobile() {
 
   return (
     <Layout title="Verify Mobile Number">
-      <Toaster />
-
       {!sessionId ? (
         <>
           <input

@@ -1,7 +1,7 @@
 // src/features/user/UserDashboard.jsx
 
 import React, { useState, useEffect } from "react";
-import { signOut, onAuthStateChanged } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import axios from "axios";
@@ -22,17 +22,20 @@ export default function UserDashboard() {
     useOrders();
   const [activeTab, setActiveTab] = useState("orders");
 
+  // ——— fetch user’s orders once on mount ———
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    (async () => {
+      const user = auth.currentUser;
       if (!user) {
         navigate("/login", { replace: true });
         return;
       }
-      // Only fetch orders once, after login confirmed
-      await fetchMyOrders(user.email);
-      setPending(false);
-    });
-    return () => unsub();
+      try {
+        await fetchMyOrders(user.email);
+      } finally {
+        setPending(false);
+      }
+    })();
   }, [fetchMyOrders, navigate]);
 
   const handleLogout = async () => {

@@ -1,5 +1,4 @@
 // src/App.jsx
-
 import React, { useState, useEffect, Suspense } from "react";
 import {
   Routes,
@@ -31,12 +30,13 @@ function AuthListener({ children }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    // subscribe exactly once
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) clearCart();
       setReady(true);
     });
-    return () => unsub();
-  }, [clearCart]);
+    return unsubscribe;
+  }, []); // ← removed clearCart from deps
 
   if (!ready) return <div className="text-center mt-10">Loading…</div>;
   return children;
@@ -44,7 +44,7 @@ function AuthListener({ children }) {
 
 // ——— Protects user routes ———
 function ProtectedUserRoute({ children }) {
-  const [status, setStatus] = useState("checking"); // checking, ok, redirectLogin, blocked, verify
+  const [status, setStatus] = useState("checking");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -128,63 +128,96 @@ function ProtectedAdminRoute({ children }) {
 
 // ——— Main App ———
 export default function App() {
+  const Loading = <div className="text-center mt-10">Loading…</div>;
+
   return (
     <CartProvider>
       <AuthListener>
         <Toaster position="top-center" />
 
-        {/* Only the active route is loaded upfront */}
-        <Suspense fallback={<div className="text-center mt-10">Loading…</div>}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/verify-mobile" element={<VerifyMobile />} />
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-            <Route
-              path="/userdashboard"
-              element={
-                <ProtectedUserRoute>
+          <Route
+            path="/login"
+            element={
+              <Suspense fallback={Loading}>
+                <Login />
+              </Suspense>
+            }
+          />
+
+          <Route
+            path="/signup"
+            element={
+              <Suspense fallback={Loading}>
+                <Signup />
+              </Suspense>
+            }
+          />
+
+          <Route
+            path="/verify-mobile"
+            element={
+              <Suspense fallback={Loading}>
+                <VerifyMobile />
+              </Suspense>
+            }
+          />
+
+          <Route
+            path="/userdashboard"
+            element={
+              <ProtectedUserRoute>
+                <Suspense fallback={Loading}>
                   <UserDashboard />
-                </ProtectedUserRoute>
-              }
-            />
-            <Route
-              path="/cart"
-              element={
-                <ProtectedUserRoute>
+                </Suspense>
+              </ProtectedUserRoute>
+            }
+          />
+
+          <Route
+            path="/cart"
+            element={
+              <ProtectedUserRoute>
+                <Suspense fallback={Loading}>
                   <Cart />
-                </ProtectedUserRoute>
-              }
-            />
-            <Route
-              path="/orders"
-              element={
-                <ProtectedUserRoute>
+                </Suspense>
+              </ProtectedUserRoute>
+            }
+          />
+
+          <Route
+            path="/orders"
+            element={
+              <ProtectedUserRoute>
+                <Suspense fallback={Loading}>
                   <UserOrders />
-                </ProtectedUserRoute>
-              }
-            />
+                </Suspense>
+              </ProtectedUserRoute>
+            }
+          />
 
-            <Route
-              path="/admin"
-              element={
-                <ProtectedAdminRoute>
+          <Route
+            path="/admin"
+            element={
+              <ProtectedAdminRoute>
+                <Suspense fallback={Loading}>
                   <AdminDashboard />
-                </ProtectedAdminRoute>
-              }
-            />
+                </Suspense>
+              </ProtectedAdminRoute>
+            }
+          />
 
-            <Route
-              path="*"
-              element={
-                <div className="text-center text-red-500 mt-10">
-                  404 - Page Not Found
-                </div>
-              }
-            />
-          </Routes>
-        </Suspense>
+          <Route
+            path="*"
+            element={
+              <div className="text-center text-red-500 mt-10">
+                404 - Page Not Found
+              </div>
+            }
+          />
+        </Routes>
       </AuthListener>
     </CartProvider>
   );
