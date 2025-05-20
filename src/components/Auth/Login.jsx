@@ -114,12 +114,18 @@ export default function Login() {
 
   return (
     <Layout title="Log In to MVP Services" maxWidth="max-w-md">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        autoComplete="off"
+        spellCheck="false"
+      >
         <div>
           <label className="block mb-1 font-medium">Email</label>
           <input
             type="email"
             value={email}
+            autoComplete="off"
             onChange={(e) => {
               console.log("✉️ Email input:", e.target.value);
               setEmail(e.target.value);
@@ -132,6 +138,7 @@ export default function Login() {
         </div>
         <div>
           <label className="block mb-1 font-medium">Password</label>
+          autoComplete="new-password"
           <input
             type="password"
             value={password}
