@@ -11,22 +11,25 @@ import otpRoutes from "./routes/otpRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import { initDB } from "./setupDb.js";
 
-// Resolve __dirname in ES module scope
+// Resolve __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
-
-// Initialize the database
 await initDB();
 
 const app = express();
 
-// ① — Logging
+// 1️⃣ General middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 2️⃣ Request logging
 app.use((req, res, next) => {
   console.log(
-    `→ ${req.method} ${req.path} query:`,
+    `→ ${req.method} ${req.path}`,
+    "query:",
     req.query,
     "body:",
     req.body,
@@ -34,35 +37,43 @@ app.use((req, res, next) => {
   next();
 });
 
-// ② — General middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 3️⃣ Content Security Policy
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      // adjust these domains to match your Firebase setup
+      "script-src 'self' https://www.gstatic.com https://apis.google.com 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://www.googleapis.com",
+      "img-src 'self' data: https://mvps-print-orders-s3.s3.amazonaws.com",
+    ].join("; "),
+  );
+  next();
+});
 
-// ③ — Mount your API routers
+// 4️⃣ API routes
 app.use("/api", stationeryRoutes);
 app.use("/api", userRoutes);
 app.use("/api", otpRoutes);
 app.use("/api", orderRoutes);
 
-// ④ — Catch‐all for any unmatched /api/* — return JSON 404
-app.use("/api", (req, res) => {
-  res.status(404).json({ error: "API endpoint not found" });
-});
+// 5️⃣ Serve uploads
+app.use(
+  "/uploads",
+  express.static(path.resolve(__dirname, "../../data/uploads")),
+);
 
-// ⑤ — Serve uploads directly
-const uploadDir = path.resolve(__dirname, "../../data/uploads");
-app.use("/uploads", express.static(uploadDir));
-
-// ⑥ — Serve your front-end build
+// 6️⃣ Serve the front-end
 const distPath = path.resolve(__dirname, "../../dist");
 app.use(express.static(distPath));
 
-// ⑦ — SPA fallback for everything else
+// 7️⃣ Fallback to index.html for client-side routing
 app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
-// ⑧ — Start listening
+// 8️⃣ Start server
 const PORT = process.env.PORT || 80;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
