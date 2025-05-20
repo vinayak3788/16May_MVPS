@@ -16,13 +16,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Shared check after any sign-in method
+  // Shared post-login checks
   const postLoginCheck = async (userEmail) => {
     try {
       const { data: profile } = await axios.get(
         `/api/get-profile?email=${encodeURIComponent(userEmail)}`,
       );
-      console.log("🔔 postLoginCheck profile:", profile);
 
       if (profile.blocked) {
         toast.error("Your account has been blocked. Contact admin.");
@@ -52,13 +51,12 @@ export default function Login() {
     }
   };
 
+  // Email/password login
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("🔔 handleSubmit fired", { email, password });
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      console.log("🔔 signInWithEmailAndPassword cred:", cred);
       if (await postLoginCheck(cred.user.email)) {
         toast.success("Welcome back!");
         navigate("/userdashboard");
@@ -71,12 +69,11 @@ export default function Login() {
     }
   };
 
+  // Google OAuth login
   const handleGoogleLogin = async () => {
-    console.log("🔔 handleGoogleLogin clicked");
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      console.log("🔔 signInWithPopup result:", result);
       if (await postLoginCheck(result.user.email)) {
         toast.success("Welcome back!");
         navigate("/userdashboard");
@@ -104,12 +101,7 @@ export default function Login() {
             name="email"
             value={email}
             autoComplete="off"
-            onChange={(e) => {
-              console.log("✉️ Email input:", e.target.value);
-              setEmail(e.target.value);
-            }}
-            onFocus={() => console.log("✉️ Email focused")}
-            onKeyDown={(e) => console.log("✉️ Email key:", e.key)}
+            onChange={(e) => setEmail(e.target.value)}
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
@@ -121,12 +113,7 @@ export default function Login() {
             type="password"
             name="password"
             value={password}
-            onChange={(e) => {
-              console.log("🔑 Password input:", e.target.value);
-              setPassword(e.target.value);
-            }}
-            onFocus={() => console.log("🔑 Password focused")}
-            onKeyDown={(e) => console.log("🔑 Password key:", e.key)}
+            onChange={(e) => setPassword(e.target.value)}
             required
             className="w-full border border-gray-300 px-3 py-2 rounded-md focus:ring-2 focus:ring-purple-500"
           />
